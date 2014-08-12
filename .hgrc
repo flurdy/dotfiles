@@ -1,2 +1,26 @@
 [ui]
 # username = My Name <me@example.com>
+verbose = True
+
+# merge = kdiff3
+# [extensions]
+# hgext.rebase = 
+# hgext.convert=
+# hgext.bookmarks=
+# hgext.graphlog=
+# hgext.eol =
+# eol =
+# hgext.win32text
+# hgsubversion = /usr/local/lib/hgsubversion/hgsubversion
+# rebase = 
+# transplant = 
+
+
+# [gpg]
+
+
+# [merge-tools]
+# %include /usr/local/src/tortoisehg/contrib/mergetools.rc
+
+# [eol]
+# only-consistent = False
