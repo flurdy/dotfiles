@@ -13,7 +13,7 @@ ANT_OPTS="-Xmx1512m -XX:MaxPermSize=1512m -XX:MaxPermSize=756m -XX:ReservedCodeC
 JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk1.7.0_65.jdk
 JDK_HOME=$JAVA_HOME
 
-SBT_OPTS="-XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -XX:PermSize=256m -XX:MaxPermSize=1024m"
+SBT_OPTS="-XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -XX:PermSize=256m -XX:MaxPermSize=1024m -XX:MaxMetaspaceSize=512m"
 
 M2_HOME="/usr/share/maven"
 
