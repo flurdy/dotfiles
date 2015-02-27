@@ -27,6 +27,15 @@ function fish_prompt --description 'Write out the prompt'
     set_color $fish_color_error
   end
 
+  # Time	
+  set_color normal
+  printf (date "+$c2%H$c0:$c2%M$c0-")
+
+  if test $CMD_DURATION
+    set_color $fish_color_error
+	 echo -n $CMD_DURATION
+  end
+
   echo -n '➤ '
   set_color normal
 end

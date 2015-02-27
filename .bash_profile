@@ -10,13 +10,15 @@ MAVEN_OPTS='-XX:+CMSClassUnloadingEnabled -XX:+UseCompressedOops -Xms128m -Xmx20
 
 ANT_OPTS="-Xmx1512m -XX:MaxPermSize=1512m -XX:MaxPermSize=756m -XX:ReservedCodeCacheSize=64m -XX:+UseCompressedOops -XX:+CMSClassUnloadingEnabled -XX:+CMSPermGenSweepingEnabled"
 
+# JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk1.8.0_11.jdk
 JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk1.7.0_65.jdk
 JDK_HOME=$JAVA_HOME
 
 SBT_OPTS="-XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -XX:PermSize=256m -XX:MaxPermSize=1024m -XX:MaxMetaspaceSize=512m"
 
-M2_HOME="/usr/share/maven"
+JAVA_TOOL_OPTIONS='-Djava.awt.headless=true'
 
+# M2_HOME="/usr/share/maven" 
 # HOMEBREW_GITHUB_API_TOKEN=123467890abcd
 
 PATH=/usr/local/git/bin:~/bin:/usr/local/bin:$PATH
