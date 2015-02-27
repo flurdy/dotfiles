@@ -9,3 +9,9 @@ set lbr
 colorscheme delek
 set smarttab autoindent
 set backupdir=~/.vimtmp
+set directory=~/.vimtmp
+set clipboard=unnamed
+set cursorline
+set incsearch
+set nostartofline
+set showcmd

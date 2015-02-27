@@ -21,6 +21,7 @@ export BACKGROUND_MAGENTA=`tput setab 5`
 export BACKGROUND_CYAN=`tput setab 6`
 export BACKGROUND_WHITE=`tput setab 7`
 export RESET_FORMATTING=`tput sgr0`
+export LC_ALL=C
  
 # Wrapper function for Maven's mvn command.
 mvn-color()
@@ -39,3 +40,4 @@ mvn-color()
  
 # Override the mvn command with the colorized one.
 alias mvn="mvn-color"
+
