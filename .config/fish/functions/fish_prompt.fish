@@ -1,6 +1,7 @@
 function fish_prompt --description 'Write out the prompt'
 	set -l last_status $status
 
+
   # User
   set_color $fish_color_user
   echo -n (whoami)
@@ -17,7 +18,21 @@ function fish_prompt --description 'Write out the prompt'
 
   # PWD
   set_color $fish_color_cwd
-  echo -n (prompt_pwd)
+  set folder_name (pwd | sed -e "s|^$HOME|~|" -e "s|~/Dropbox|/dbox|")
+  set folder_length (echo $folder_name | awk ' { print length } ')
+  if test "$folder_length" -lt 60
+	 echo -n "$folder_name"
+  else if test "$folder_length" -lt 80
+    echo -n (echo "$folder_name" | sed -e "s-\([^/][^/][^/][^/][^/][^/]\)[^/]*/-\1/-g")
+  else if test "$folder_length" -lt 100
+    echo -n (echo "$folder_name" | sed -e "s-\([^/][^/][^/][^/][^/]\)[^/]*/-\1/-g")
+  else if test "$folder_length" -lt 120
+    echo -n (echo "$folder_name" | sed -e "s-\([^/][^/][^/][^/]\)[^/]*/-\1/-g")
+  else
+    echo -n (echo "$folder_name" | sed -e "s-\([^/][^/][^/]\)[^/]*/-\1/-g")
+  end
+#  echo -n (prompt_pwd)
+
   set_color normal
 
   __terlar_git_prompt
