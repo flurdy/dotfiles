@@ -1,8 +1,21 @@
+#[include]
+#    path = ~/.dotsomething/.gitconfig
 [user]
 #	name = My Name
 #	email = me@example.com
 [alias]
-	st = status
-	hist = log --pretty=format:\"%h %ad | %s%d [%an]\" --graph --date=short
-	refresh = remote update
-   up = remote update
+   st = status
+   ci = commit
+   hist = log --pretty=format:\"%Cred%h%Creset %Cgreen%ad%Creset %C(auto)%d%Creset %s%d %C(bold blue)[%an]%Creset\" --graph --date=short
+   histall = log --all --pretty=format:\"%Cred%h%Creset %Cgreen%ad%Creset %C(auto)%d%Creset %s%d %C(bold blue)[%an]%Creset\" --graph --date=short
+   refresh = remote update
+   rup = remote update
+   undo = reset HEAD~1 --mixed
+   saveall = !gitsaveall
+   wip = !gitwip
+   amend = commit -a --amend
+   wipe = !gitwipe
+   rebaseclean = !gitrebaseclean
+[push]
+   default = current
+
