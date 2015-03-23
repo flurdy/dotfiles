@@ -1,0 +1,5 @@
+function gomachine 
+	set -xg DOCKER_HOST $DOCKER_HOST_MACHINE 
+	set -xg DOCKER_CERT_PATH $DOCKER_CERT_PATH_MACHINE
+end
+
