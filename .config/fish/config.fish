@@ -15,7 +15,7 @@ set -xg SBT_OPTS_JAVA8 "$SBT_OPTS_COMMON -XX:MaxMetaspaceSize=1024m"
 set -xg SBT_OPTS_JAVA6 "$SBT_OPTS_COMMON -XX:PermSize=256m -XX:MaxPermSize=1024m"
 set -xg SBT_OPTS $SBT_OPTS_JAVA8
 
-set -xg MAVEN_OPTS_COMMON "-XX:+CMSClassUnloadingEnabled -XX:+UseCompressedOops -Xms128m -Xmx2048m -Djava.awt.headless=true"
+set -xg MAVEN_OPTS_COMMON "-XX:+CMSClassUnloadingEnabled -XX:+UseCompressedOops -Xms128m -Xmx3076m -Djava.awt.headless=true"
 set -xg MAVEN_OPTS_JAVA8 "$MAVEN_OPTS_COMMON -XX:MaxMetaspaceSize=1024m"
 set -xg MAVEN_OPTS_JAVA6 "$MAVEN_OPTS_COMMON -XX:MaxPermSize=256m"
 set -xg MAVEN_OPTS $MAVEN_OPTS_JAVA8
@@ -25,11 +25,18 @@ set -xg JAVA_OPTS_JAVA8 "$JAVA_OPTS_COMMON -XX:MaxMetaspaceSize=1024m"
 set -xg JAVA_OPTS_JAVA6 "$JAVA_OPTS_COMMON -XX:MaxPermSize=256m"
 set -xg JAVA_OPTS $JAVA_OPTS_JAVA8
 
-set -xg DOCKER_HOST tcp://192.168.59.103:2376
+set -xg DOCKER_HOST_B2D tcp://192.168.59.103:2376
+set -xg DOCKER_HOST_MACHINE tcp://192.168.99.100:2376
 set -xg DOCKER_CERT_PATH_B2D $HOME/.boot2docker/certs/boot2docker-vm
 set -xg DOCKER_CERT_PATH_MACHINE $HOME/.docker/machine/machines/dev
 set -xg DOCKER_CERT_PATH $DOCKER_CERT_PATH_B2D
+set -xg DOCKER_HOST $DOCKER_HOST_B2D
 set -xg DOCKER_TLS_VERIFY 1
+
+set -xg AWS_DOCKER_VPC_ID  vpc
+set -xg AWS_DOCKER_SUBNET_ID subnet
+set -xg AWS_DOCKER_REGION us-east-1
+set -xg AWS_DOCKER_ZONE a
 
 set -xg EDITOR 'vi'
 
