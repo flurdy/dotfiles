@@ -11,11 +11,11 @@
    refresh = remote update
    rup = remote update
    undo = reset HEAD~1 --mixed
-   saveall = !gitsaveall
-   wip = !gitwip
+   saveall = !git-saveall
+   wip = !git-wip
    amend = commit -a --amend
-   wipe = !gitwipe
-   rebaseclean = !gitrebaseclean
+   clean = !git-clean
+   eject = !git-eject
 [push]
    default = current
 

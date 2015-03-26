@@ -1,4 +1,4 @@
-function machineec2create 
+function machine-create-ec2 
 	docker-machine create \
 	-d amazonec2 \
 	--amazonec2-access-key $AWS_DOCKER_ACCESS_KEY \
