@@ -1,4 +1,6 @@
 
+set -U fish_function_path $fish_function_path[1] $HOME/.dotfiles/.config/fish/functions $fish_function_path[(seq 2 (count $fish_function_path))]
+
 set -xg JAVA8_HOME /Library/Java/JavaVirtualMachines/jdk1.8.0_11.jdk/Contents/Home
 set -xg JAVA7_HOME /Library/Java/JavaVirtualMachines/jdk1.7.0_65.jdk/Contents/Home
 set -xg JAVA6_HOME /System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Home
