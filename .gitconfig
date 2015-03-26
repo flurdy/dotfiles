@@ -11,11 +11,11 @@
    refresh = remote update
    rup = remote update
    undo = reset HEAD~1 --mixed
-   saveall = !git-saveall
-   wip = !git-wip
+   saveall = "!fish -c git-saveall"
+   wip = "!fish -c git-wip"
    amend = commit -a --amend
-   clean = !git-clean
-   eject = !git-eject
+   ditch = "!fish -c git-ditch"
+   eject = "!fish -c git-eject"
 [push]
    default = current
 
