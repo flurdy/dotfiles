@@ -1,5 +1,9 @@
 
-set -U fish_function_path $fish_function_path[1] $HOME/.dotfiles/.config/fish/functions $fish_function_path[(seq 2 (count $fish_function_path))]
+if test $fish_function_path[2] != "$HOME/.dotfiles/.config/fish/functions"
+	if test $fish_function_path[3] != "$HOME/.dotfiles/.config/fish/functions"
+		set -U fish_function_path $fish_function_path[1] $HOME/.dotfiles/.config/fish/functions $fish_function_path[(seq 2 (count $fish_function_path))]
+	end
+end
 
 set -xg JAVA8_HOME /Library/Java/JavaVirtualMachines/jdk1.8.0_11.jdk/Contents/Home
 set -xg JAVA7_HOME /Library/Java/JavaVirtualMachines/jdk1.7.0_65.jdk/Contents/Home
@@ -39,6 +43,9 @@ set -xg AWS_DOCKER_VPC_ID  vpc
 set -xg AWS_DOCKER_SUBNET_ID subnet
 set -xg AWS_DOCKER_REGION us-east-1
 set -xg AWS_DOCKER_ZONE a
+
+set -xg GIT_MY_NAME Ola Nordmann 
+set -xg GIT_MY_EMAIL ola@example.com
 
 set -xg EDITOR 'vi'
 

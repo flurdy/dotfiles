@@ -16,6 +16,7 @@
    amend = commit -a --amend
    ditch = "!fish -c git-ditch"
    eject = "!fish -c git-eject"
+   claim = "!fish -c git-claim"
 [push]
    default = current
 
