@@ -17,6 +17,7 @@
    ditch = "!fish -c git-ditch"
    eject = "!fish -c git-eject"
    claim = "!fish -c git-claim"
+   tmp   = "!fish -c git-tmp"
 [push]
    default = current
 
