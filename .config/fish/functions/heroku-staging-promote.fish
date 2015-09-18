@@ -1,4 +1,4 @@
-function staging-promote 
+function heroku-staging-promote 
 	heroku pipeline:promote --remote staging
 end
 
