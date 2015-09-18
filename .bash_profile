@@ -10,7 +10,7 @@ MAVEN_OPTS='-XX:+CMSClassUnloadingEnabled -XX:+UseCompressedOops -Xms128m -Xmx20
 
 ANT_OPTS="-Xmx1512m -XX:MaxPermSize=1512m -XX:MaxPermSize=756m -XX:ReservedCodeCacheSize=64m -XX:+UseCompressedOops -XX:+CMSClassUnloadingEnabled -XX:+CMSPermGenSweepingEnabled"
 
-# JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk1.8.0_11.jdk
+# JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk1.8.0_60.jdk
 JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk1.7.0_65.jdk
 JDK_HOME=$JAVA_HOME
 

@@ -32,7 +32,10 @@ Fish shell
 
 Git
 ----
-* ln -s ~/.dotfiles/.gitconfig ~/.gitconfig
+* echo "[include]" > ~/.gitconfignew
+* echo "   path = ~/.dotfiles/.gitconfig" >> ~/.gitconfignew
+* cat ~/.gitconfig >> ~/.gitconfignew
+* mv ~/.gitconfignew ~/.gitconfig
 
 
 Mercurial
