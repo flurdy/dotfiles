@@ -27,10 +27,10 @@ set -xg LINUX_JAVA8_HOME /usr/lib/jvm/java-8-oracle
 set -xg LINUX_JAVA7_HOME /usr/lib/jvm/java-7-oracle
 set -xg LINUX_JAVA6_HOME /usr/lib/jvm/java-6-oracle
 set -xg MAC_JAVA_HOME /Library/Java/Home
-set -xg JAVA_HOME8 $MAC_JAVA8_HOME
-set -xg JAVA_HOME7 $MAC_JAVA7_HOME
-set -xg JAVA_HOME6 $MAC_JAVA6_HOME
-set -xg JAVA_HOME $JAVA_HOME8
+set -xg JAVA8_HOME $MAC_JAVA8_HOME
+set -xg JAVA7_HOME $MAC_JAVA7_HOME
+set -xg JAVA6_HOME $MAC_JAVA6_HOME
+set -xg JAVA_HOME $JAVA8_HOME
 set -xg JDK_HOME $JAVA_HOME
 
 # set -xg M2_HOME "/usr/share/maven"
@@ -48,9 +48,9 @@ set -xg MAVEN_OPTS_JAVA6 "$MAVEN_OPTS_COMMON -XX:MaxPermSize=256m"
 set -xg MAVEN_OPTS $MAVEN_OPTS_JAVA8
 
 set -xg JAVA_OPTS_COMMON "-XX:+CMSClassUnloadingEnabled -XX:+UseCompressedOops -Xms128m -Xmx2048m"
-set -xg JAVA_OPTS_JAVA8 "$JAVA_OPTS_COMMON -XX:MaxMetaspaceSize=1024m"
-set -xg JAVA_OPTS_JAVA6 "$JAVA_OPTS_COMMON -XX:MaxPermSize=256m"
-set -xg JAVA_OPTS $JAVA_OPTS_JAVA8
+set -xg JAVA8_OPTS "$JAVA_OPTS_COMMON -XX:MaxMetaspaceSize=1024m"
+set -xg JAVA6_OPTS "$JAVA_OPTS_COMMON -XX:MaxPermSize=256m"
+set -xg JAVA_OPTS $JAVA8_OPTS
 
 set -xg DOCKER_HOST_B2D tcp://192.168.59.103:2376
 set -xg DOCKER_HOST_MACHINE tcp://192.168.99.100:2376
