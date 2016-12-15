@@ -52,13 +52,15 @@ set -xg JAVA8_OPTS "$JAVA_OPTS_COMMON -XX:MaxMetaspaceSize=1024m"
 set -xg JAVA6_OPTS "$JAVA_OPTS_COMMON -XX:MaxPermSize=256m"
 set -xg JAVA_OPTS $JAVA8_OPTS
 
-set -xg DOCKER_HOST_B2D tcp://192.168.59.103:2376
-set -xg DOCKER_HOST_MACHINE tcp://192.168.99.100:2376
-set -xg DOCKER_CERT_PATH_B2D $HOME/.boot2docker/certs/boot2docker-vm
+# set -xg DOCKER_HOST_B2D tcp://192.168.59.103:2376
+# set -xg DOCKER_HOST_MACHINE tcp://192.168.99.100:2376
+# set -xg DOCKER_CERT_PATH_B2D $HOME/.boot2docker/certs/boot2docker-vm
 set -xg DOCKER_CERT_PATH_MACHINE $HOME/.docker/machine/machines/dev
 # set -xg DOCKER_CERT_PATH $DOCKER_CERT_PATH_B2D
 # set -xg DOCKER_HOST $DOCKER_HOST_B2D
 # set -xg DOCKER_TLS_VERIFY 1
+set -xg DOCKER_HOST_MAC unix:///var/run/docker.sock
+# set -xg DOCKER_HOST DOCKER_HOST_MAC 
 
 set -xg AWS_DOCKER_VPC_ID  vpc
 set -xg AWS_DOCKER_SUBNET_ID subnet
@@ -70,9 +72,13 @@ set -xg GIT_MY_EMAIL ola@example.com
 
 set -xg EDITOR 'vi'
 
-set -Ux LSCOLORS gxfxbEaEBxxEhEhBaDaCaD
+# set -Ux LSCOLORS gxfxbEaEBxxEhEhBaDaCaD
 
 set -xg PATH ~/bin $PATH 
 set -xg PATH /usr/local/bin $PATH 
+# set -xg PATH ~/.local/bin $PATH 
 # set -xg PATH ~/Applications/google-cloud-sdk/bin $PATH 
+
+set -xg PAIR_PROJECT_WORKSPACE ~/Code
+
 

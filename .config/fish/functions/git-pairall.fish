@@ -1,12 +1,15 @@
 function git-pairall
-  if test -d $argv
-    echo "No pairs chosen" 
+  if test (count $argv) -eq 2 
+	 echo "Pairing projects in $PAIR_PROJECT_WORKSPACE"
+	 for PROJ in $PAIR_PROJECT_WORKSPACE/*
+	   if test -d $PROJ/.git
+		  cd $PROJ
+		  and git pair $argv
+	   end
+    end
+	 and cd $PAIR_PROJECT_WORKSPACE
   else
-	 for PROJ in $PAIR_PROJECTS
-	   echo "Pairing project $PROJ"
-	   and cd $PAIR_PROJECT_WORKSPACE/$PROJ
-	   and git pair $argv
-	   and cd $PAIR_PROJECT_WORKSPACE
-		end
-	end
+    echo "Two in a pair please, not: $argv" 
+  end
 end
+

@@ -1,5 +1,6 @@
+// resolvers += "Sonatype snapshots" at "http://oss.sonatype.org/content/repositories/snapshots/"
 
-addSbtPlugin("org.ensime" % "ensime-sbt" % "0.3.2")
+addSbtPlugin("org.ensime" % "sbt-ensime" % "1.0.0")
 
 addSbtPlugin("com.github.mpeltonen" %% "sbt-idea" % "1.5.2") 
 
