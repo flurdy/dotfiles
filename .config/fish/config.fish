@@ -20,9 +20,9 @@ if begin
 	set -U fish_function_path $fish_function_path[1] $HOME/.dotfiles/.config/fish/functions $fish_function_path[(seq 2 (count $fish_function_path))]
 end
 
-set -xg MAC_JAVA8_HOME /Library/Java/JavaVirtualMachines/jdk1.8.0_60.jdk/Contents/Home
+set -xg MAC_JAVA8_HOME /Library/Java/JavaVirtualMachines/jdk1.8.0_112.jdk/Contents/Home
 set -xg MAC_JAVA7_HOME /Library/Java/JavaVirtualMachines/jdk1.7.0_65.jdk/Contents/Home
-set -xg MAC_JAVA6_HOME /System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Home
+set -xg MAC_JAVA6_HOME /Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Home
 set -xg LINUX_JAVA8_HOME /usr/lib/jvm/java-8-oracle
 set -xg LINUX_JAVA7_HOME /usr/lib/jvm/java-7-oracle
 set -xg LINUX_JAVA6_HOME /usr/lib/jvm/java-6-oracle
