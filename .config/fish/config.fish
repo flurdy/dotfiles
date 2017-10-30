@@ -1,84 +1,70 @@
+##### Fish config by flurdy
+##
+## Not complete as part of hierichal configs similar to:
+##   
+## ~/.config/fish                           #  Machine specific conf
+##  --> ~/.dotprivate/.config/fish          # User specific conf
+##    --> ~/.dotfiles/.config/fish          # Common conf 
+##
+## In addition ~/config/fish/conf.d links to ~/.dotfiles/.config/fish/conf.d
+## for App specific conf
+##
 
-if begin
-		begin
-			test (count $fish_function_path) -lt 3 
-			or test $fish_function_path[1] != "$HOME/.dotfiles/.config/fish/functions"
-		end
-	and begin
-			test (count $fish_function_path) -lt 4 
-			or test $fish_function_path[2] != "$HOME/.dotfiles/.config/fish/functions"
-		end
-	and begin
-			test (count $fish_function_path) -lt 5 
-			or test $fish_function_path[3] != "$HOME/.dotfiles/.config/fish/functions"
-		end
-	and begin
-			test (count $fish_function_path) -lt 6
-			or test $fish_function_path[4] != "$HOME/.dotfiles/.config/fish/functions"
-		end
-	end
-	set -U fish_function_path $fish_function_path[1] $HOME/.dotfiles/.config/fish/functions $fish_function_path[(seq 2 (count $fish_function_path))]
+contains -- $HOME/.dotfiles/.config/fish/functions fish_function_path
+   or set -U fish_function_path $HOME/.dotfiles/.config/fish/functions $fish_function_path
+
+if not set -q ARCH
+	set -xg ARCH MAC
+end
+if not set -q JAVA8_VERSION 
+   set -xg JAVA8_VERSION 112
+end
+if not set -q JAVA7_VERSION 
+   set -xg JAVA7_VERSION 65 
+end
+if not set -q JAVA_VERSION 
+   set -xg JAVA_VERSION 8
 end
 
-set -xg MAC_JAVA8_HOME /Library/Java/JavaVirtualMachines/jdk1.8.0_112.jdk/Contents/Home
-set -xg MAC_JAVA7_HOME /Library/Java/JavaVirtualMachines/jdk1.7.0_65.jdk/Contents/Home
-set -xg MAC_JAVA6_HOME /Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Home
-set -xg LINUX_JAVA8_HOME /usr/lib/jvm/java-8-oracle
-set -xg LINUX_JAVA7_HOME /usr/lib/jvm/java-7-oracle
-set -xg LINUX_JAVA6_HOME /usr/lib/jvm/java-6-oracle
-set -xg MAC_JAVA_HOME /Library/Java/Home
-set -xg JAVA8_HOME $MAC_JAVA8_HOME
-set -xg JAVA7_HOME $MAC_JAVA7_HOME
-set -xg JAVA6_HOME $MAC_JAVA6_HOME
-set -xg JAVA_HOME $JAVA8_HOME
-set -xg JDK_HOME $JAVA_HOME
-
-# set -xg M2_HOME "/usr/share/maven"
-
-# set -xg JAVA_TOOL_OPTIONS '-Djava.awt.headless=true'
-
-set -xg SBT_OPTS_COMMON "-XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -Xmx4096m"
-set -xg SBT_OPTS_JAVA8 "$SBT_OPTS_COMMON -XX:MaxMetaspaceSize=1024m"
-set -xg SBT_OPTS_JAVA6 "$SBT_OPTS_COMMON -XX:PermSize=256m -XX:MaxPermSize=1024m"
-set -xg SBT_OPTS $SBT_OPTS_JAVA8
-
-set -xg MAVEN_OPTS_COMMON "-XX:+CMSClassUnloadingEnabled -XX:+UseCompressedOops -Xms128m -Xmx3076m -Djava.awt.headless=true"
-set -xg MAVEN_OPTS_JAVA8 "$MAVEN_OPTS_COMMON -XX:MaxMetaspaceSize=1024m"
-set -xg MAVEN_OPTS_JAVA6 "$MAVEN_OPTS_COMMON -XX:MaxPermSize=256m"
-set -xg MAVEN_OPTS $MAVEN_OPTS_JAVA8
-
-set -xg JAVA_OPTS_COMMON "-XX:+CMSClassUnloadingEnabled -XX:+UseCompressedOops -Xms128m -Xmx2048m"
-set -xg JAVA8_OPTS "$JAVA_OPTS_COMMON -XX:MaxMetaspaceSize=1024m"
-set -xg JAVA6_OPTS "$JAVA_OPTS_COMMON -XX:MaxPermSize=256m"
-set -xg JAVA_OPTS $JAVA8_OPTS
-
-# set -xg DOCKER_HOST_B2D tcp://192.168.59.103:2376
-# set -xg DOCKER_HOST_MACHINE tcp://192.168.99.100:2376
-# set -xg DOCKER_CERT_PATH_B2D $HOME/.boot2docker/certs/boot2docker-vm
-set -xg DOCKER_CERT_PATH_MACHINE $HOME/.docker/machine/machines/dev
-# set -xg DOCKER_CERT_PATH $DOCKER_CERT_PATH_B2D
-# set -xg DOCKER_HOST $DOCKER_HOST_B2D
-# set -xg DOCKER_TLS_VERIFY 1
-set -xg DOCKER_HOST_MAC unix:///var/run/docker.sock
-# set -xg DOCKER_HOST DOCKER_HOST_MAC 
-
-set -xg AWS_DOCKER_VPC_ID  vpc
-set -xg AWS_DOCKER_SUBNET_ID subnet
-set -xg AWS_DOCKER_REGION us-east-1
-set -xg AWS_DOCKER_ZONE a
-
-set -xg GIT_MY_NAME Ola Nordmann 
-set -xg GIT_MY_EMAIL ola@example.com
+setjava
+setsbt
+setmvn
+# gojava8
 
 set -xg EDITOR 'vi'
 
-# set -Ux LSCOLORS gxfxbEaEBxxEhEhBaDaCaD
+if not set --q WORKSPACE
+   set -xg WORKSPACE $HOME/Code
+end
+if not set --q PAIR_PROJECT_WORKSPACE
+   set -xg PAIR_PROJECT_WORKSPACE $WORKSPACE
+end
 
-set -xg PATH ~/bin $PATH 
-set -xg PATH /usr/local/bin $PATH 
-# set -xg PATH ~/.local/bin $PATH 
-# set -xg PATH ~/Applications/google-cloud-sdk/bin $PATH 
+if not set -q GIT_MY_NAME
+   set -xg GIT_MY_NAME Ola Nordmann
+end
+if not set -q GIT_MY_EMAIL
+   set -xg GIT_MY_EMAIL ola@example.com
+end
 
-set -xg PAIR_PROJECT_WORKSPACE ~/Code
+contains -- /usr/local/bin PATH
+   or set -xg PATH /usr/local/bin $PATH
+contains -- $HOME/bin PATH
+   or set -xg PATH $HOME/bin $PATH
 
+# set -xg DOCKER_HOST_MAC
+# set -xg DOCKER_HOST DOCKER_HOST_MAC
+# set -xg DOCKER_CERT_PATH_MACHINE
+# set -xg DOCKER_TLS_VERIFY 1
+# set -xg DOCKER_ID_USER 1
+
+if not set -q AWS_DOCKER_REGION
+   set -xg AWS_DOCKER_REGION us-east-1
+end
+if not set -q AWS_DOCKER_ZONE
+   set -xg AWS_DOCKER_ZONE a
+end
+if not set -q AWS_DOCKER_INSTANCE_TYPE
+   set -xg AWS_DOCKER_INSTANCE_TYPE t2.micro
+end
 
