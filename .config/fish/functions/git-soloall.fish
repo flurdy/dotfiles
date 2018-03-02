@@ -4,7 +4,7 @@ function git-soloall
 	  if test -d $PROJ/.git
 	    echo "Going solo for project $PROJ"
 	    and cd $PROJ
-	    and git solo
+	    and git-claim
 	  end
 	end
 	and cd $PAIR_PROJECT_WORKSPACE

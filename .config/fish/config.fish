@@ -68,3 +68,7 @@ if not set -q AWS_DOCKER_INSTANCE_TYPE
    set -xg AWS_DOCKER_INSTANCE_TYPE t2.micro
 end
 
+set -g theme_display_k8s_context no
+set -g fish_prompt_pwd_dir_length 3
+set -g theme_display_hostname yes
+
