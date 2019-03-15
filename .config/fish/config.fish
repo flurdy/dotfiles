@@ -10,8 +10,12 @@
 ## for App specific conf
 ##
 
-contains -- $HOME/.dotfiles/.config/fish/functions fish_function_path
-   or set -U fish_function_path $HOME/.dotfiles/.config/fish/functions $fish_function_path
+#contains -- $HOME/.dotfiles/.config/fish/functions fish_function_path
+#   or set -U fish_function_path $HOME/.dotfiles/.config/fish/functions $fish_function_path
+
+#set -U fish_function_path $HOME/.dotfiles/.config/fish/functions (string match -v $HOME/.dotfiles/.config/fish/functions $fish_function_path)
+
+# set -U fish_user_paths /snap/bin (string match -v /snap/bin $fish_user_paths)
 
 if not set -q ARCH
 	set -xg ARCH MAC
@@ -68,7 +72,10 @@ if not set -q AWS_DOCKER_INSTANCE_TYPE
    set -xg AWS_DOCKER_INSTANCE_TYPE t2.micro
 end
 
-set -g theme_display_k8s_context no
+# set -xg KUBECONFIG $HOME/.kube/config:$HOME/.kube/client1.conf
+set -e KUBECONFIG
+
+set -g theme_display_k8s_context yes
 set -g fish_prompt_pwd_dir_length 3
 set -g theme_display_hostname yes
 
