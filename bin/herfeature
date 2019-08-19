@@ -1,0 +1,100 @@
+#!/bin/bash
+
+# commands: 
+# * list
+# * add 
+# * get 
+# * enabled
+# * disable
+# * remove
+
+if [ $# -eq 0 ]
+  then
+    echo "usage: herfeature [list|get|enable|disable|remove] [feature] ([enviroment])"
+    exit 1
+fi
+
+if [ $# -gt 3 ]
+  then
+    echo "usage: herfeature [list|add|get|enable|disable|remove] [feature] ([enviroment])"
+    exit 1
+fi
+
+feat_cmd=$1
+feat_cmd=$(echo "$feat_cmd" | tr '[:upper:]' '[:lower:]')
+
+if [ $# -eq 1 ] && [ "$feat_cmd" != "list" ]
+  then
+    echo "usage: herfeature [list|add|get|enable|disable|remove] [feature] ([enviroment])"
+    exit 1
+fi
+
+if [ "$feat_cmd" != "list" ]
+ then 
+   feature=$2
+   feature=${feature#"FEATURE_"}
+   feature=$(echo "$feature" | tr '[:lower:]' '[:upper:]')
+   full_feature="FEATURE_$feature"
+fi
+
+if [ $# -eq 1 ] && [ "$feat_cmd" == "list" ]
+  then
+    feat_env=heroku-live
+elif [ $# -eq 2 ] && [ "$feat_cmd" != "list" ]
+  then
+    feat_env=heroku-live
+elif [ $# -eq 3 ] && [ "$feat_cmd" == "list" ]
+  then
+    echo "usage: herfeature [list|add|get|enable|disable|remove] [feature] ([enviroment])"
+    exit 1
+elif [ $# -eq 2 ] && [ "$feat_cmd" == "list" ]
+  then
+    feat_env=$2
+elif [ $# -eq 3 ] && [ "$feat_cmd" != "list" ]
+  then
+    feat_env=$3
+fi
+
+feat_env=${feat_env#"heroku-"}
+feat_env="heroku-${feat_env}"
+
+if [ "$feat_cmd" == "list" ]
+  then
+    echo Listing features on $feat_env
+    heroku config -r $feat_env | grep "FEATURE_"
+elif [ "$feat_cmd" == "get" ]
+  then
+    echo Looking up feature $feature on $feat_env
+    feat_status=$(heroku config:get $full_feature -r $feat_env) 
+    if [ "$feat_status" == "true" ]
+      then
+        echo Feature $feature is enabled
+    elif [ "$feat_status" == "false" ]
+      then
+        echo Feature $feature is disabled
+    else
+        echo Feature $feature status is unknown
+    fi
+elif [ "$feat_cmd" == "add" ]
+  then
+    echo Adding feature $feature on $feat_env
+    heroku config:set $full_feature=false -r $feat_env 
+elif [ "$feat_cmd" == "enable" ] || [ "$feat_cmd" == "on" ]
+  then
+    echo Enabling feature $feature on $feat_env
+    heroku config:set $full_feature=true -r $feat_env 
+elif [ "$feat_cmd" == "disable" ] || [ "$feat_cmd" == "false" ]
+  then
+    echo Disabling feature $feature on $feat_env
+    heroku config:set $full_feature=false -r $feat_env
+elif [ "$feat_cmd" == "remove" ] || [ "$feat_cmd" == "unset" ] || [ "$feat_cmd" == "rem" ] || [ "$feat_cmd" == "delete" ]
+  then
+    echo Removing feature $feature from $feat_env
+    heroku config:unset $full_feature -r $feat_env 
+  else
+    echo "usage: herfeature [list|add|get|enable|disable|remove] [feature] ([enviroment])"
+    exit 1
+fi
+
+exit 0
+
