@@ -1,0 +1,8 @@
+#!/bin/sh
+
+if [ "$1" == "feature" ]
+  then
+    herfeature ${@:2}
+else
+   echo "Usage: herctl [feature] [args]"
+fi
