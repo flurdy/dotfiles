@@ -74,6 +74,7 @@ end
 
 # set -xg KUBECONFIG $HOME/.kube/config:$HOME/.kube/client1.conf
 set -e KUBECONFIG
+set -xg FLUX_FORWARD_NAMESPACE flux
 
 set -g theme_display_k8s_context yes
 set -g fish_prompt_pwd_dir_length 3
