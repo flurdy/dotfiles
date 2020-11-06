@@ -30,9 +30,9 @@ if not set -q JAVA_VERSION
    set -xg JAVA_VERSION 8
 end
 
-setjava
-setsbt
-setmvn
+#setjava
+#setsbt
+#setmvn
 # gojava8
 
 set -xg EDITOR 'vi'
@@ -79,4 +79,5 @@ set -xg FLUX_FORWARD_NAMESPACE flux
 set -g theme_display_k8s_context yes
 set -g fish_prompt_pwd_dir_length 3
 set -g theme_display_hostname yes
+set -g theme_display_git_untracked yes
 

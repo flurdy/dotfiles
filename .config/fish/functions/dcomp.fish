@@ -1,4 +1,4 @@
-function compose
+function dcomp
 	docker-compose $argv
 end
 
