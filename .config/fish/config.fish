@@ -57,6 +57,16 @@ contains -- /usr/local/bin PATH
 contains -- $HOME/bin PATH
    or set -xg PATH $HOME/bin $PATH
 
+if test -d /opt/linuxbrew
+	set -xg HOMEBREWPATH /opt/linuxbrew
+else if test -d /home/linuxbrew
+	set -xg HOMEBREWPATH /home/linuxbrew
+end
+
+if test -d $HOMEBREWPATH/share/fish/vendor_completions.d
+	contains $HOMEBREWPATH/share/fish/vendor_completions.d $fish_complete_path; or set -Ua fish_complete_path $HOMEBREWPATH/share/fish/vendor_completions.d
+end
+
 # set -xg DOCKER_HOST_MAC
 # set -xg DOCKER_HOST DOCKER_HOST_MAC
 # set -xg DOCKER_CERT_PATH_MACHINE
@@ -77,8 +87,11 @@ end
 set -e KUBECONFIG
 set -xg FLUX_FORWARD_NAMESPACE flux
 
-set -g theme_display_k8s_context yes
-set -g fish_prompt_pwd_dir_length 3
-set -g theme_display_hostname yes
-set -g theme_display_git_untracked yes
-
+#set -g theme_display_k8s_context yes
+#set -g fish_prompt_pwd_dir_length 3
+#set -g theme_display_hostname yes
+#set -g theme_display_git_untracked yes
+#set -g theme_powerline_fonts yes
+#set -g theme_nerd_fonts yes
+#set -g theme_display_git_dirty yes
+#set -g theme_color_scheme dark
