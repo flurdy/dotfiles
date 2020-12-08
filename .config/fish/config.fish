@@ -95,3 +95,7 @@ set -xg FLUX_FORWARD_NAMESPACE flux
 #set -g theme_nerd_fonts yes
 #set -g theme_display_git_dirty yes
 #set -g theme_color_scheme dark
+
+alias get "git"
+alias gut "git"
+#alias kube "kbubectl"
