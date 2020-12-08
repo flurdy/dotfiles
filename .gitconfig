@@ -17,11 +17,12 @@
    ditch = "!fish -c git-ditch"
    eject = "!fish -c git-eject"
    claim = "!fish -c git-claim"
-   solo  = "!fish -c git-claim"
+#   solo  = "!fish -c git-claim"
    tmp   = "!fish -c git-tmp"
 	unadd = reset HEAD
 	pairall = "!fish -c git-pairall"
 	soloall = "!fish -c git-soloall"
+	mobhook = "!fish -c git-mobhook"
 [push]
    default = current
 
