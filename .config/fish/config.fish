@@ -90,3 +90,4 @@ set -xg FLUX_FORWARD_NAMESPACE flux
 alias get "git"
 alias gut "git"
 #alias kube "kbubectl"
+alias trash "gio trash"
