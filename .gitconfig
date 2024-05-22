@@ -25,6 +25,7 @@
 	mobhook = "!fish -c git-mobhook"
 	mobinit = "!fish -c git-mobinit"
 	mobremove = "!fish -c git-mobremove"
+	publish = "!fish -c git-publish"
 [push]
    default = current
 

@@ -1,5 +1,5 @@
 function git-mobremove
   git solo
-  git --uninstallTemplate
+  git mob --uninstallTemplate
   rm .git/hooks/prepare-commit-msg
 end
