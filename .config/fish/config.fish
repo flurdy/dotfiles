@@ -1,10 +1,10 @@
 ##### Fish config by flurdy
 ##
 ## Not complete as part of hierichal configs similar to:
-##   
+##
 ## ~/.config/fish                           #  Machine specific conf
 ##  --> ~/.dotprivate/.config/fish          # User specific conf
-##    --> ~/.dotfiles/.config/fish          # Common conf 
+##    --> ~/.dotfiles/.config/fish          # Common conf
 ##
 ## In addition ~/config/fish/conf.d links to ~/.dotfiles/.config/fish/conf.d
 ## for App specific conf
@@ -18,16 +18,16 @@
 # set -U fish_user_paths /snap/bin (string match -v /snap/bin $fish_user_paths)
 contains $HOME/.dotfiles/.config/fish/functions $fish_function_path; or set -g fish_function_path $HOME/.dotfiles/.config/fish/functions $fish_function_path
 
-if not set -q ARCH
-	set -xg ARCH MAC
+#if not set -q ARCH
+#	set -xg ARCH MAC
+#end
+if not set -q JAVA8_VERSION
+   set -xg JAVA8_VERSION 292
 end
-if not set -q JAVA8_VERSION 
-   set -xg JAVA8_VERSION 112
+if not set -q JAVA7_VERSION
+   set -xg JAVA7_VERSION 65
 end
-if not set -q JAVA7_VERSION 
-   set -xg JAVA7_VERSION 65 
-end
-if not set -q JAVA_VERSION 
+if not set -q JAVA_VERSION
    set -xg JAVA_VERSION 8
 end
 
@@ -89,5 +89,9 @@ set -xg FLUX_FORWARD_NAMESPACE flux
 
 alias get "git"
 alias gut "git"
+alias ll "exa -l -a -g --icons"
+alias ga "git add -p"
+alias ghist "git history"
 #alias kube "kbubectl"
+alias hs "history | grep "
 alias trash "gio trash"
