@@ -6,7 +6,7 @@ set tabstop=3
 set ic
 set hls
 set lbr
-colorscheme delek
+colorscheme sorbet 
 set smarttab autoindent
 set backupdir=~/.vimtmp
 set directory=~/.vimtmp

@@ -19,13 +19,18 @@
    claim = "!fish -c git-claim"
 #   solo  = "!fish -c git-claim"
    tmp   = "!fish -c git-tmp"
-	unadd = reset HEAD
-	pairall = "!fish -c git-pairall"
-	soloall = "!fish -c git-soloall"
-	mobhook = "!fish -c git-mobhook"
-	mobinit = "!fish -c git-mobinit"
-	mobremove = "!fish -c git-mobremove"
-	publish = "!fish -c git-publish"
+   unadd = reset HEAD
+   pairall = "!fish -c git-pairall"
+   soloall = "!fish -c git-soloall"
+   mobhook = "!fish -c git-mobhook"
+   mobinit = "!fish -c git-mobinit"
+   mobremove = "!fish -c git-mobremove"
+   publish = "!fish -c git-publish"
+   wt = worktree
+   wta = worktree add
+   wtl = worktree list
+   wtr = worktree remove
+   wtc = "!git-clone-worktree.sh"
 [push]
    default = current
 
