@@ -21,22 +21,22 @@ contains $HOME/.dotfiles/.config/fish/functions $fish_function_path; or set -g f
 #if not set -q ARCH
 #	set -xg ARCH MAC
 #end
-if not set -q JAVA8_VERSION
-   set -xg JAVA8_VERSION 292
-end
-if not set -q JAVA7_VERSION
-   set -xg JAVA7_VERSION 65
-end
-if not set -q JAVA_VERSION
-   set -xg JAVA_VERSION 8
-end
+#if not set -q JAVA8_VERSION
+#   set -xg JAVA8_VERSION 292
+#end
+#if not set -q JAVA7_VERSION
+#   set -xg JAVA7_VERSION 65
+#end
+#if not set -q JAVA_VERSION
+#   set -xg JAVA_VERSION 8
+#end
 
 #setjava
 #setsbt
 #setmvn
 # gojava8
 
-set -xg EDITOR 'vi'
+#set -xg EDITOR 'vi'
 
 if not set --q WORKSPACE
    set -xg WORKSPACE $HOME/Code
@@ -45,12 +45,12 @@ if not set --q PAIR_PROJECT_WORKSPACE
    set -xg PAIR_PROJECT_WORKSPACE $WORKSPACE
 end
 
-if not set -q GIT_MY_NAME
-   set -xg GIT_MY_NAME Ola Nordmann
-end
-if not set -q GIT_MY_EMAIL
-   set -xg GIT_MY_EMAIL ola@example.com
-end
+#if not set -q GIT_MY_NAME
+#   set -xg GIT_MY_NAME Ola Nordmann
+#end
+#if not set -q GIT_MY_EMAIL
+#   set -xg GIT_MY_EMAIL ola@example.com
+#end
 
 contains -- /usr/local/bin PATH
    or set -xg PATH /usr/local/bin $PATH
@@ -67,25 +67,23 @@ if test -d $HOMEBREWPATH/share/fish/vendor_completions.d
 	contains $HOMEBREWPATH/share/fish/vendor_completions.d $fish_complete_path; or set -Ua fish_complete_path $HOMEBREWPATH/share/fish/vendor_completions.d
 end
 
-# set -xg DOCKER_HOST_MAC
-# set -xg DOCKER_HOST DOCKER_HOST_MAC
-# set -xg DOCKER_CERT_PATH_MACHINE
-# set -xg DOCKER_TLS_VERIFY 1
-# set -xg DOCKER_ID_USER 1
-
-if not set -q AWS_DOCKER_REGION
-   set -xg AWS_DOCKER_REGION us-east-1
-end
-if not set -q AWS_DOCKER_ZONE
-   set -xg AWS_DOCKER_ZONE a
-end
-if not set -q AWS_DOCKER_INSTANCE_TYPE
-   set -xg AWS_DOCKER_INSTANCE_TYPE t2.micro
-end
+#if not set -q AWS_DOCKER_REGION
+#   set -xg AWS_DOCKER_REGION us-east-1
+#end
+#if not set -q AWS_DOCKER_ZONE
+#   set -xg AWS_DOCKER_ZONE a
+#end
+#if not set -q AWS_DOCKER_INSTANCE_TYPE
+#   set -xg AWS_DOCKER_INSTANCE_TYPE t2.micro
+#end
 
 # set -xg KUBECONFIG $HOME/.kube/config:$HOME/.kube/client1.conf
-set -e KUBECONFIG
+#set -e KUBECONFIG
 set -xg FLUX_FORWARD_NAMESPACE flux
+
+set VAGRANT_DEFAULT_PROVIDER docker
+
+set -xg EDITOR /usr/bin/vim
 
 alias get "git"
 alias gut "git"
@@ -95,3 +93,11 @@ alias ghist "git history"
 #alias kube "kbubectl"
 alias hs "history | grep "
 alias trash "gio trash"
+
+if type -q direnv
+    direnv hook fish | source
+end
+
+#if type -q starship
+#   starship init fish | source
+#end
