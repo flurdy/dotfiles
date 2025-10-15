@@ -30,6 +30,7 @@ function clone_worktree
     set default_server (set -q CLONE_WORKTREE_SERVER; and echo $CLONE_WORKTREE_SERVER; or echo "github.com")
     set default_flat (set -q CLONE_WORKTREE_FLAT; and echo $CLONE_WORKTREE_FLAT; or echo "false")
     set bare_name (set -q CLONE_WORKTREE_BARE_NAME; and echo $CLONE_WORKTREE_BARE_NAME; or echo ".bare")
+    set default_no_suffix (set -q CLONE_WORKTREE_NO_SUFFIX; and echo $CLONE_WORKTREE_NO_SUFFIX; or echo "false")
     
     # Parse named arguments
     argparse --name=clone_worktree \
@@ -40,6 +41,7 @@ function clone_worktree
         'n/name=' \
         'f/flat' \
         'no-flat' \
+        'no-suffix' \
         -- $argv
     or return 1
     
@@ -62,14 +64,16 @@ function clone_worktree
         echo "  -n, --name NAME      Custom folder/project name (default: extracted from repo URL)"
         echo "  -f, --flat           Skip creating project folder; place bare repo and worktree directly in parent"
         echo "  --no-flat            Force nested mode (overrides CLONE_WORKTREE_FLAT env var)"
+        echo "  --no-suffix          Don't append branch name to worktree folder (creates 'repo' instead of 'repo-main')"
         echo ""
         echo "Environment Variables:"
-        echo "  CLONE_WORKTREE_ROOT           Override default code root directory"
-        echo "  CLONE_WORKTREE_PARENT         Override default parent folder"
-        echo "  CLONE_WORKTREE_ORG            Default Git organization/user for shorthand notation"
-        echo "  CLONE_WORKTREE_SERVER         Default Git server (default: github.com)"
-        echo "  CLONE_WORKTREE_FLAT           Use flat mode by default (true/false, default: false)"
-        echo "  CLONE_WORKTREE_BARE_NAME      Name for bare repo folder (default: .bare)"
+        echo "  CLONE_WORKTREE_ROOT              Override default code root directory"
+        echo "  CLONE_WORKTREE_PARENT            Override default parent folder"
+        echo "  CLONE_WORKTREE_ORG               Default Git organization/user for shorthand notation"
+        echo "  CLONE_WORKTREE_SERVER            Default Git server (default: github.com)"
+        echo "  CLONE_WORKTREE_FLAT              Use flat mode by default (true/false, default: false)"
+        echo "  CLONE_WORKTREE_BARE_NAME         Name for bare repo folder (default: .bare)"
+        echo "  CLONE_WORKTREE_NO_SUFFIX         Don't append branch name by default (true/false, default: false)"
         echo ""
         echo "Examples:"
         echo "  clone_worktree git@github.com:user/repo.git"
@@ -79,6 +83,7 @@ function clone_worktree
         echo "  clone_worktree myorg/myrepo --root ~/Dev"
         echo "  clone_worktree user/very-long-repository-name --name short"
         echo "  clone_worktree user/repo --flat"
+        echo "  clone_worktree user/repo --no-suffix"
         return 0
     end
     
@@ -162,6 +167,15 @@ function clone_worktree
     if set -q _flag_no_flat
         set use_flat false
     end
+    
+    # Determine if using branch suffix (flag overrides environment variable)
+    set use_branch_suffix true
+    if test "$default_no_suffix" = "true"
+        set use_branch_suffix false
+    end
+    if set -q _flag_no_suffix
+        set use_branch_suffix false
+    end
 
     # Set up paths based on flat mode
     set base_path $code_root/$parent_folder
@@ -228,15 +242,20 @@ function clone_worktree
     
     # Create main worktree
     # We're currently inside the bare git repo
-    set worktree_name "$project_name-$default_branch"
+    if test "$use_branch_suffix" = "true"
+        set worktree_name "$project_name-$default_branch"
+    else
+        set worktree_name "$project_name"
+    end
+    
     git worktree add ../$worktree_name $default_branch
     or begin
         echo "Error: Failed to create worktree"
         return 1
     end
     
-    # Navigate to the worktree
-    cd ../$worktree_name
+    # Get the full path to the worktree for the success message
+    set worktree_path (cd ../$worktree_name; and pwd)
     
-    echo "✓ Successfully set up worktree at: $PWD"
+    echo "✓ Successfully set up worktree at: $worktree_path"
 end
