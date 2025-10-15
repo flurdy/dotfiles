@@ -1,3 +1,3 @@
 #!/bin/bash
 
-fish -c "clone_worktree $@"
+fish -c "clone_worktree $(printf '%q ' "$@")"

@@ -18,6 +18,8 @@
 # set -U fish_user_paths /snap/bin (string match -v /snap/bin $fish_user_paths)
 contains $HOME/.dotfiles/.config/fish/functions $fish_function_path; or set -g fish_function_path $HOME/.dotfiles/.config/fish/functions $fish_function_path
 
+contains $HOME/.dotfiles/bin $fish_user_paths; or fish_add_path $HOME/.dotfiles/bin 
+
 #if not set -q ARCH
 #	set -xg ARCH MAC
 #end
