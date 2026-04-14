@@ -16,8 +16,50 @@ ctx_pct=$(echo "$input" | jq -r '.context_window.used_percentage // 0')
 rate_5h_pct=$(echo "$input" | jq -r '.rate_limits.five_hour.used_percentage // 0')
 rate_7d_pct=$(echo "$input" | jq -r '.rate_limits.seven_day.used_percentage // 0')
 git_worktree=$(echo "$input" | jq -r '.workspace.git_worktree // empty')
+session_id=$(echo "$input" | jq -r '.session_id // empty')
 
 host=$(hostname -s)
+
+# --- Caching helper for expensive git operations ---
+cache_git_status() {
+  local cache_file="/tmp/statusline-git-cache-$session_id"
+  local cache_max_age=5  # seconds
+
+  # Check if cache exists and is fresh
+  if [ -f "$cache_file" ]; then
+    local cache_age=$(( $(date +%s) - $(stat -c %Y "$cache_file" 2>/dev/null || stat -f %m "$cache_file" 2>/dev/null || echo 0) ))
+    if [ "$cache_age" -lt "$cache_max_age" ]; then
+      cat "$cache_file"
+      return 0
+    fi
+  fi
+
+  # Cache miss or stale: refresh git status
+  local branch dirty untracked staged is_worktree
+  if [ -d "$cwd/.git" ] || git -C "$cwd" rev-parse --git-dir &>/dev/null 2>&1; then
+    branch=$(git -C "$cwd" symbolic-ref --short HEAD 2>/dev/null || git -C "$cwd" describe --tags --exact-match 2>/dev/null || git -C "$cwd" rev-parse --short HEAD 2>/dev/null)
+
+    dirty="0"
+    if ! git -C "$cwd" diff --quiet 2>/dev/null; then dirty="1"; fi
+
+    untracked="0"
+    if [ -n "$(git -C "$cwd" ls-files --others --exclude-standard 2>/dev/null | head -1)" ]; then untracked="1"; fi
+
+    staged="0"
+    if ! git -C "$cwd" diff --cached --quiet 2>/dev/null; then staged="1"; fi
+
+    is_worktree="0"
+    if [ -f "$cwd/.git" ] || [ "$(git -C "$cwd" rev-parse --git-common-dir 2>/dev/null)" != "$(git -C "$cwd" rev-parse --git-dir 2>/dev/null)" ]; then
+      is_worktree="1"
+    fi
+  else
+    branch="" dirty="0" untracked="0" staged="0" is_worktree="0"
+  fi
+
+  # Write cache
+  echo "$branch|$dirty|$untracked|$staged|$is_worktree" > "$cache_file" 2>/dev/null
+  cat "$cache_file"
+}
 
 # --- Colors ---
 RST='\033[0m'
@@ -140,29 +182,26 @@ abbrev_path() {
 }
 segment_path="${C_PATH}$(abbrev_path "$cwd")${RST}"
 
-# Git branch + status
+# Git branch + status (cached)
 segment_git=""
-if [ -d "$cwd/.git" ] || git -C "$cwd" rev-parse --git-dir &>/dev/null 2>&1; then
-  branch=$(git -C "$cwd" symbolic-ref --short HEAD 2>/dev/null || git -C "$cwd" describe --tags --exact-match 2>/dev/null || git -C "$cwd" rev-parse --short HEAD 2>/dev/null)
-  if [ -n "$branch" ]; then
-    dirty=""
-    if ! git -C "$cwd" diff --quiet 2>/dev/null; then dirty="●"; fi
-    untracked=""
-    if [ -n "$(git -C "$cwd" ls-files --others --exclude-standard 2>/dev/null | head -1)" ]; then untracked="…"; fi
-    staged=""
-    if ! git -C "$cwd" diff --cached --quiet 2>/dev/null; then staged="✚"; fi
+IFS='|' read -r branch dirty untracked staged is_worktree <<< "$(cache_git_status)"
+if [ -n "$branch" ]; then
+  # Convert numeric flags back to visual icons
+  dirty_icon=""
+  [ "$dirty" = "1" ] && dirty_icon="●"
+  untracked_icon=""
+  [ "$untracked" = "1" ] && untracked_icon="…"
+  staged_icon=""
+  [ "$staged" = "1" ] && staged_icon="✚"
 
-    status_icons="${dirty}${untracked}${staged}"
-    wt_icon=""
-    # Detect git worktree: .git is a file (not dir) in worktrees, or compare common-dir vs git-dir
-    if [ -f "$cwd/.git" ] || [ "$(git -C "$cwd" rev-parse --git-common-dir 2>/dev/null)" != "$(git -C "$cwd" rev-parse --git-dir 2>/dev/null)" ]; then
-      wt_icon=" 🌳"
-    fi
-    if [ -n "$status_icons" ]; then
-      segment_git="${C_GIT_DIRTY}$(printf '\xef\x90\x98') ${branch} ${status_icons}${wt_icon}${RST}"
-    else
-      segment_git="${C_GIT}$(printf '\xef\x90\x98') ${branch}${wt_icon}${RST}"
-    fi
+  status_icons="${dirty_icon}${untracked_icon}${staged_icon}"
+  wt_icon=""
+  [ "$is_worktree" = "1" ] && wt_icon=" 🌳"
+
+  if [ -n "$status_icons" ]; then
+    segment_git="${C_GIT_DIRTY}$(printf '\xef\x90\x98') ${branch} ${status_icons}${wt_icon}${RST}"
+  else
+    segment_git="${C_GIT}$(printf '\xef\x90\x98') ${branch}${wt_icon}${RST}"
   fi
 fi
 
