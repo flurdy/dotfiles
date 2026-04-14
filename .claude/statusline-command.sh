@@ -214,13 +214,6 @@ if [ -n "$effort_val" ]; then
   segment_effort="${C_EFFORT}⚡${effort_val}${RST}"
 fi
 
-line1="${segment_model}"
-[ -n "$segment_effort" ] && line1="${line1} ${segment_effort}"
-line1="${line1}${SEP}${segment_host}"
-[ -n "$segment_k8s" ] && line1="${line1}${SEP}${segment_k8s}"
-line1="${line1}${SEP}${segment_path}"
-[ -n "$segment_git" ] && line1="${line1}${SEP}${segment_git}"
-
 # ===== LINE 2: Usage segments =====
 
 # 5-hour rate limit bar
@@ -246,8 +239,161 @@ segment_cost="${C_COST}\$${cost_fmt}${RST}"
 duration_fmt=$(fmt_duration "$duration_ms")
 segment_time="${C_TIME}⏱ ${duration_fmt}${RST}"
 
-line2="       ${segment_ctx}${SEP}${segment_5h}${SEP}${segment_7d}${SEP}${segment_cost}"
-line2="${line2}${SEP}${segment_time}"
+# ===== TABLE LAYOUT WITH BORDERS =====
+
+C_BORDER='\033[38;2;70;70;70m'
+ANSI_STRIP=$'s/\x1b\[[0-9;]*[mK]//g'
+
+# Visible length: strip ANSI codes, count characters
+visible_len() {
+  printf '%b' "$1" | sed "$ANSI_STRIP" | tr -d '\n' | wc -m | tr -d ' '
+}
+
+# Pad a colored string to target visible width
+pad_right() {
+  local content="$1" target="$2"
+  local vlen pad
+  vlen=$(visible_len "$content")
+  pad=$(( target - vlen ))
+  (( pad < 0 )) && pad=0
+  printf '%b' "$content"
+  printf '%*s' "$pad" ""
+}
+
+# Repeat a character n times
+rpt() {
+  local char="$1" n="$2" s=""
+  for ((i=0; i<n; i++)); do s+="$char"; done
+  printf '%s' "$s"
+}
+
+# Build a border line: total_width fill [pos char ...]
+build_border_line() {
+  local total=$1 fill=$2
+  shift 2
+  declare -A jmap
+  while (( $# >= 2 )); do jmap[$1]="$2"; shift 2; done
+  local line=""
+  for ((i=0; i<total; i++)); do
+    [[ "${jmap[$i]+_}" ]] && line+="${jmap[$i]}" || line+="$fill"
+  done
+  printf '%b%s%b' "$C_BORDER" "$line" "$RST"
+}
+
+PAD=1  # spaces on each side of cell content
+
+# Column content
+seg_c1_r1="${segment_model}"
+[ -n "$segment_effort" ] && seg_c1_r1="${segment_model} ${segment_effort}"
+seg_c2_r1="$segment_host"
+seg_c3_r1="$segment_k8s"
+seg_c4_r1="$segment_path"
+seg_c5_r1="$segment_git"
+seg_c1_r2="$segment_ctx"
+seg_c2_r2="$segment_5h"
+seg_c3_r2="$segment_7d"
+seg_c4_r2="$segment_cost"
+seg_c5_r2="$segment_time"
+
+# Shared column widths (max of both rows + padding)
+l11=$(visible_len "$seg_c1_r1"); l12=$(visible_len "$seg_c1_r2")
+l21=$(visible_len "$seg_c2_r1"); l22=$(visible_len "$seg_c2_r2")
+l31=$(visible_len "$seg_c3_r1"); l32=$(visible_len "$seg_c3_r2")
+c1=$(( (l11>l12?l11:l12) + 2*PAD ))
+c2=$(( (l21>l22?l21:l22) + 2*PAD ))
+c3=$(( (l31>l32?l31:l32) + 2*PAD ))
+
+# Independent last column widths
+r1c4=$(( $(visible_len "$seg_c4_r1") + 2*PAD ))
+r1c5=$(( $(visible_len "$seg_c5_r1") + 2*PAD ))
+r2c4=$(( $(visible_len "$seg_c4_r2") + 2*PAD ))
+r2c5=$(( $(visible_len "$seg_c5_r2") + 2*PAD ))
+
+has_git=0
+[ -n "$seg_c5_r1" ] && has_git=1
+
+# Total last-section width must match between rows
+(( has_git )) && total_last_r1=$(( r1c4 + 1 + r1c5 )) || total_last_r1=$r1c4
+total_last_r2=$(( r2c4 + 1 + r2c5 ))
+
+if (( total_last_r1 >= total_last_r2 )); then
+  total_last=$total_last_r1
+  r2c5=$(( total_last - r2c4 - 1 ))
+else
+  total_last=$total_last_r2
+  if (( has_git )); then
+    r1c5=$(( total_last - r1c4 - 1 ))
+  else
+    r1c4=$total_last
+  fi
+fi
+
+# Junction positions (0-indexed character offsets in the border lines)
+total_width=$(( 1 + c1 + 1 + c2 + 1 + c3 + 1 + total_last + 1 ))
+ps1=$(( 1 + c1 ))
+ps2=$(( ps1 + 1 + c2 ))
+ps3=$(( ps2 + 1 + c3 ))
+pr1=$(( ps3 + 1 + r1c4 ))   # row1 path/git divider
+pr2=$(( ps3 + 1 + r2c4 ))   # row2 cost/time divider
+pR=$(( total_width - 1 ))   # right outer border
+
+# Top border: row1 column structure
+top_args=("$total_width" "─" 0 "┌" $ps1 "┬" $ps2 "┬" $ps3 "┬")
+(( has_git )) && top_args+=($pr1 "┬")
+top_args+=($pR "┐")
+top_line=$(build_border_line "${top_args[@]}")
+
+# Middle border: shared ┼, then ┴/┬ where rows diverge
+mid_args=("$total_width" "─" 0 "├" $ps1 "┼" $ps2 "┼" $ps3 "┼")
+if (( has_git )); then
+  if   (( pr1 == pr2 )); then mid_args+=($pr1 "┼")
+  elif (( pr1 <  pr2 )); then mid_args+=($pr1 "┴" $pr2 "┬")
+  else                        mid_args+=($pr2 "┬" $pr1 "┴")
+  fi
+else
+  mid_args+=($pr2 "┬")
+fi
+mid_args+=($pR "┤")
+mid_line=$(build_border_line "${mid_args[@]}")
+
+# Bottom border: row2 column structure
+bot_line=$(build_border_line "$total_width" "─" 0 "└" $ps1 "┴" $ps2 "┴" $ps3 "┴" $pr2 "┴" $pR "┘")
+
+# Row 1
+row1() {
+  printf '%b│%b' "$C_BORDER" "$RST"
+  pad_right " $seg_c1_r1 " $c1
+  printf '%b│%b' "$C_BORDER" "$RST"
+  pad_right " $seg_c2_r1 " $c2
+  printf '%b│%b' "$C_BORDER" "$RST"
+  pad_right " $seg_c3_r1 " $c3
+  printf '%b│%b' "$C_BORDER" "$RST"
+  pad_right " $seg_c4_r1 " $r1c4
+  if (( has_git )); then
+    printf '%b│%b' "$C_BORDER" "$RST"
+    pad_right " $seg_c5_r1 " $r1c5
+  fi
+  printf '%b│%b' "$C_BORDER" "$RST"
+}
+
+# Row 2
+row2() {
+  printf '%b│%b' "$C_BORDER" "$RST"
+  pad_right " $seg_c1_r2 " $c1
+  printf '%b│%b' "$C_BORDER" "$RST"
+  pad_right " $seg_c2_r2 " $c2
+  printf '%b│%b' "$C_BORDER" "$RST"
+  pad_right " $seg_c3_r2 " $c3
+  printf '%b│%b' "$C_BORDER" "$RST"
+  pad_right " $seg_c4_r2 " $r2c4
+  printf '%b│%b' "$C_BORDER" "$RST"
+  pad_right " $seg_c5_r2 " $r2c5
+  printf '%b│%b' "$C_BORDER" "$RST"
+}
 
 # ===== Output =====
-printf "%b\n%b" "$line1" "$line2"
+printf '%b\n' "$top_line"
+printf '%b\n' "$(row1)"
+printf '%b\n' "$mid_line"
+printf '%b\n' "$(row2)"
+printf '%b'   "$bot_line"
