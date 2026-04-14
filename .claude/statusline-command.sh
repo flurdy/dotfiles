@@ -237,153 +237,176 @@ segment_cost="${C_COST}\$${cost_fmt}${RST}"
 
 # Session duration
 duration_fmt=$(fmt_duration "$duration_ms")
-segment_time="${C_TIME}⏱ ${duration_fmt}${RST}"
+segment_time="${C_TIME}${duration_fmt}${RST}"
 
 # Last updated timestamp
 segment_clock="${C_LABEL}$(date '+%H:%M')${RST}"
 
-# ===== TABLE LAYOUT WITH BORDERS =====
+# ===== SHARED HELPERS =====
 
 C_BORDER='\033[38;2;70;70;70m'
 
-# Visible length: strip ANSI codes, count display columns (handles wide chars)
 visible_len() {
   printf '%b' "$1" | sed $'s/\x1b\\[[0-9;]*m//g' | wc -L
 }
 
-# Pad a colored string to target visible width
-pad_right() {
-  local content="$1" target="$2"
-  local vlen pad
-  vlen=$(visible_len "$content")
-  pad=$(( target - vlen ))
-  (( pad < 0 )) && pad=0
-  printf '%b' "$content"
-  printf '%*s' "$pad" ""
-}
+# ===== COMPACT (1 line) =====
 
-# Build a border line: total_width fill [pos char ...]
-build_border_line() {
-  local total=$1 fill=$2
-  shift 2
-  declare -A jmap
-  while (( $# >= 2 )); do jmap[$1]="$2"; shift 2; done
-  local line=""
-  for ((i=0; i<total; i++)); do
-    [[ "${jmap[$i]+_}" ]] && line+="${jmap[$i]}" || line+="$fill"
-  done
-  printf '%b%s%b' "$C_BORDER" "$line" "$RST"
-}
+render_compact() {
+  # Shorter model name
+  local m1
+  case "$model_id" in
+    *opus*)   m1="Opus" ;;
+    *sonnet*) m1="Sonnet" ;;
+    *haiku*)  m1="Haiku" ;;
+    *)        m1="$model_id" ;;
+  esac
+  local seg_m="${C_MODEL}${BOLD}${m1}${RST}"
 
-PAD=1  # spaces on each side of cell content
-
-# Row 1: environment (where am I)
-r1_segs=("$segment_host")
-[ -n "$segment_k8s" ] && r1_segs+=("$segment_k8s")
-r1_segs+=("$segment_path")
-[ -n "$segment_git" ] && r1_segs+=("$segment_git")
-
-# Row 2: Claude session info
-r2_segs=("$segment_model")
-[ -n "$segment_effort" ] && r2_segs+=("$segment_effort")
-r2_segs+=("$segment_ctx" "$segment_5h" "$segment_7d" "$segment_cost" "$segment_time" "$segment_clock")
-
-# Compute widths for each row
-r1_widths=()
-for s in "${r1_segs[@]}"; do
-  r1_widths+=($(( $(visible_len "$s") + 2*PAD )))
-done
-
-r2_widths=()
-for s in "${r2_segs[@]}"; do
-  r2_widths+=($(( $(visible_len "$s") + 2*PAD )))
-done
-
-# Total inner width for each row (widths + dividers between cells)
-r1_inner=0
-for w in "${r1_widths[@]}"; do r1_inner=$(( r1_inner + w + 1 )); done
-r1_inner=$(( r1_inner - 1 ))
-
-r2_inner=0
-for w in "${r2_widths[@]}"; do r2_inner=$(( r2_inner + w + 1 )); done
-r2_inner=$(( r2_inner - 1 ))
-
-# Expand last cell of shorter row to match
-if (( r1_inner > r2_inner )); then
-  r2_widths[-1]=$(( r2_widths[-1] + r1_inner - r2_inner ))
-  total_inner=$r1_inner
-elif (( r2_inner > r1_inner )); then
-  r1_widths[-1]=$(( r1_widths[-1] + r2_inner - r1_inner ))
-  total_inner=$r2_inner
-else
-  total_inner=$r1_inner
-fi
-
-total_width=$(( 1 + total_inner + 1 ))
-pR=$(( total_width - 1 ))
-
-# Compute divider positions for each row
-r1_divs=()
-pos=1
-for ((i=0; i<${#r1_widths[@]}-1; i++)); do
-  pos=$(( pos + r1_widths[i] ))
-  r1_divs+=($pos)
-  pos=$(( pos + 1 ))
-done
-
-r2_divs=()
-pos=1
-for ((i=0; i<${#r2_widths[@]}-1; i++)); do
-  pos=$(( pos + r2_widths[i] ))
-  r2_divs+=($pos)
-  pos=$(( pos + 1 ))
-done
-
-# Build top border (row1 column structure)
-top_args=("$total_width" "─" 0 "┌")
-for p in "${r1_divs[@]}"; do top_args+=($p "┬"); done
-top_args+=($pR "┐")
-top_line=$(build_border_line "${top_args[@]}")
-
-# Build middle border: ┴ at row1 dividers, ┬ at row2 dividers, ┼ if coincide
-declare -A mid_jmap
-mid_jmap[0]="├"
-mid_jmap[$pR]="┤"
-for p in "${r1_divs[@]}"; do mid_jmap[$p]="┴"; done
-for p in "${r2_divs[@]}"; do
-  if [[ "${mid_jmap[$p]}" == "┴" ]]; then
-    mid_jmap[$p]="┼"
-  else
-    mid_jmap[$p]="┬"
+  local seg_e=""
+  if [ -n "$effort_val" ]; then
+    local ev
+    case "$effort_val" in
+      high) ev="H" ;; medium) ev="M" ;; low) ev="L" ;; *) ev="${effort_val:0:1}" ;;
+    esac
+    seg_e=" ${C_EFFORT}⚡${ev}${RST}"
   fi
-done
-mid_line=$(build_border_line "$total_width" "─" "${!mid_jmap[@]}" "${mid_jmap[@]}" 2>/dev/null)
 
-# Rebuild mid_line properly using flattened pairs
-mid_args=("$total_width" "─")
-for p in "${!mid_jmap[@]}"; do mid_args+=($p "${mid_jmap[$p]}"); done
-mid_line=$(build_border_line "${mid_args[@]}")
+  # Mini bars (3 wide, no labels)
+  mini_bar() {
+    local pct=${1%.*} width=3
+    local filled=$(( pct * width / 100 ))
+    [ "$pct" -gt 0 ] && [ "$filled" -eq 0 ] && filled=1
+    [ $filled -gt $width ] && filled=$width
+    local empty=$(( width - filled ))
+    local fill_color="$C_BAR_FILL"
+    (( pct >= 80 )) && fill_color="$C_BAR_CRIT"
+    (( pct >= 60 && pct < 80 )) && fill_color="$C_BAR_WARN"
+    local bar="" ebar=""
+    for ((i=0; i<filled; i++)); do bar+="▮"; done
+    for ((i=0; i<empty; i++)); do ebar+="▯"; done
+    printf "%b%s%b%s%b" "$fill_color" "$bar" "$C_BAR_EMPTY" "$ebar" "$RST"
+  }
 
-# Build bottom border (row2 column structure)
-bot_args=("$total_width" "─" 0 "└")
-for p in "${r2_divs[@]}"; do bot_args+=($p "┴"); done
-bot_args+=($pR "┘")
-bot_line=$(build_border_line "${bot_args[@]}")
+  local line="${segment_clock}"
+  line="${line}${SEP}${seg_m}${seg_e}"
+  line="${line}${SEP}$(mini_bar "$pct_ctx") $(mini_bar "$pct_5h") $(mini_bar "$pct_7d")"
+  line="${line}${SEP}${segment_time}"
+  line="${line}${SEP}${segment_path}"
+  [ -n "$segment_git" ] && line="${line}${SEP}${segment_git}"
 
-# Render a row given segment array and widths array
-render_row() {
-  local -n _segs=$1
-  local -n _widths=$2
-  printf '%b│%b' "$C_BORDER" "$RST"
-  for ((i=0; i<${#_segs[@]}; i++)); do
-    pad_right " ${_segs[$i]} " ${_widths[$i]}
-    printf '%b│%b' "$C_BORDER" "$RST"
-  done
+  printf '%b' "$line"
 }
 
-# ===== Output =====
-printf '%b\n' "$top_line"
-printf '%b\n' "$(render_row r1_segs r1_widths)"
-printf '%b\n' "$mid_line"
-printf '%b\n' "$(render_row r2_segs r2_widths)"
-printf '%b'   "$bot_line"
+# ===== TABLE (5 lines) =====
+
+render_table() {
+  pad_right() {
+    local content="$1" target="$2"
+    local vlen pad
+    vlen=$(visible_len "$content")
+    pad=$(( target - vlen ))
+    (( pad < 0 )) && pad=0
+    printf '%b' "$content"
+    printf '%*s' "$pad" ""
+  }
+
+  build_border_line() {
+    local total=$1 fill=$2
+    shift 2
+    declare -A jmap
+    while (( $# >= 2 )); do jmap[$1]="$2"; shift 2; done
+    local line=""
+    for ((i=0; i<total; i++)); do
+      [[ "${jmap[$i]+_}" ]] && line+="${jmap[$i]}" || line+="$fill"
+    done
+    printf '%b%s%b' "$C_BORDER" "$line" "$RST"
+  }
+
+  local PAD=1
+
+  # Row 1: environment
+  local r1_segs=("$segment_host")
+  [ -n "$segment_k8s" ] && r1_segs+=("$segment_k8s")
+  r1_segs+=("$segment_path")
+  [ -n "$segment_git" ] && r1_segs+=("$segment_git")
+
+  # Row 2: Claude session info
+  local r2_segs=("$segment_model")
+  [ -n "$segment_effort" ] && r2_segs+=("$segment_effort")
+  r2_segs+=("$segment_ctx" "$segment_5h" "$segment_7d" "$segment_cost" "$segment_time" "$segment_clock")
+
+  # Compute widths
+  local r1_widths=() r2_widths=()
+  for s in "${r1_segs[@]}"; do r1_widths+=($(( $(visible_len "$s") + 2*PAD ))); done
+  for s in "${r2_segs[@]}"; do r2_widths+=($(( $(visible_len "$s") + 2*PAD ))); done
+
+  # Total inner width
+  local r1_inner=0 r2_inner=0
+  for w in "${r1_widths[@]}"; do r1_inner=$(( r1_inner + w + 1 )); done
+  r1_inner=$(( r1_inner - 1 ))
+  for w in "${r2_widths[@]}"; do r2_inner=$(( r2_inner + w + 1 )); done
+  r2_inner=$(( r2_inner - 1 ))
+
+  # Expand shorter row
+  local total_inner
+  if (( r1_inner > r2_inner )); then
+    r2_widths[-1]=$(( r2_widths[-1] + r1_inner - r2_inner )); total_inner=$r1_inner
+  elif (( r2_inner > r1_inner )); then
+    r1_widths[-1]=$(( r1_widths[-1] + r2_inner - r1_inner )); total_inner=$r2_inner
+  else
+    total_inner=$r1_inner
+  fi
+
+  local total_width=$(( 1 + total_inner + 1 ))
+  local pR=$(( total_width - 1 ))
+
+  # Divider positions
+  local r1_divs=() r2_divs=() pos
+  pos=1; for ((i=0; i<${#r1_widths[@]}-1; i++)); do pos=$(( pos + r1_widths[i] )); r1_divs+=($pos); pos=$(( pos + 1 )); done
+  pos=1; for ((i=0; i<${#r2_widths[@]}-1; i++)); do pos=$(( pos + r2_widths[i] )); r2_divs+=($pos); pos=$(( pos + 1 )); done
+
+  # Top border
+  local top_args=("$total_width" "─" 0 "┌")
+  for p in "${r1_divs[@]}"; do top_args+=($p "┬"); done
+  top_args+=($pR "┐")
+
+  # Middle border
+  declare -A mid_jmap
+  mid_jmap[0]="├"; mid_jmap[$pR]="┤"
+  for p in "${r1_divs[@]}"; do mid_jmap[$p]="┴"; done
+  for p in "${r2_divs[@]}"; do
+    [[ "${mid_jmap[$p]}" == "┴" ]] && mid_jmap[$p]="┼" || mid_jmap[$p]="┬"
+  done
+  local mid_args=("$total_width" "─")
+  for p in "${!mid_jmap[@]}"; do mid_args+=($p "${mid_jmap[$p]}"); done
+
+  # Bottom border
+  local bot_args=("$total_width" "─" 0 "└")
+  for p in "${r2_divs[@]}"; do bot_args+=($p "┴"); done
+  bot_args+=($pR "┘")
+
+  # Render row helper
+  render_row() {
+    local -n _segs=$1 _widths=$2
+    printf '%b│%b' "$C_BORDER" "$RST"
+    for ((i=0; i<${#_segs[@]}; i++)); do
+      pad_right " ${_segs[$i]} " ${_widths[$i]}
+      printf '%b│%b' "$C_BORDER" "$RST"
+    done
+  }
+
+  printf '%b\n' "$(build_border_line "${top_args[@]}")"
+  printf '%b\n' "$(render_row r1_segs r1_widths)"
+  printf '%b\n' "$(build_border_line "${mid_args[@]}")"
+  printf '%b\n' "$(render_row r2_segs r2_widths)"
+  printf '%b'   "$(build_border_line "${bot_args[@]}")"
+}
+
+# ===== Output: choose mode =====
+# Set CLAUDE_STATUSLINE=table in .envrc for bordered table, otherwise compact
+if [ "${CLAUDE_STATUSLINE}" = "table" ]; then
+  render_table
+else
+  render_compact
+fi
