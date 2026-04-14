@@ -150,15 +150,17 @@ fmt_duration() {
 model_short=$(short_model "$model_id")
 segment_model="${C_MODEL}${BOLD}${model_short}${RST}"
 
-# Hostname
-segment_host="${C_HOST}${BOLD}${host}${RST}"
+# Hostname (using nerd font icon - screen/monitor F108)
+segment_host="${C_HOST}${BOLD}$(printf '\xef\x84\x88') ${host}${RST}"
 
 # K8s context
 segment_k8s=""
-if command -v kubectl &>/dev/null; then
-  k8s_ctx=$(kubectl config current-context 2>/dev/null)
-  if [ -n "$k8s_ctx" ]; then
-    segment_k8s="${C_K8S}☸ ${k8s_ctx}${RST}"
+if [ "${theme_display_k8s_context}" = "yes" ] || [ "${theme_display_k8s_context}" = "true" ]; then
+  if command -v kubectl &>/dev/null; then
+    k8s_ctx=$(kubectl config current-context 2>/dev/null)
+    if [ -n "$k8s_ctx" ]; then
+      segment_k8s="${C_K8S}☸ ${k8s_ctx}${RST}"
+    fi
   fi
 fi
 
@@ -180,7 +182,7 @@ abbrev_path() {
   done
   echo "$result"
 }
-segment_path="${C_PATH}$(abbrev_path "$cwd")${RST}"
+segment_path="${C_PATH}$(printf '\xef\x81\xbc') $(abbrev_path "$cwd")${RST}"
 
 # Git branch + status (cached)
 segment_git=""
