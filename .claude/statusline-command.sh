@@ -79,9 +79,9 @@ progress_bar() {
   fi
 
   local bar=""
-  for ((i=0; i<filled; i++)); do bar+="▰"; done
+  for ((i=0; i<filled; i++)); do bar+="▮"; done
   local empty_bar=""
-  for ((i=0; i<empty; i++)); do empty_bar+="▱"; done
+  for ((i=0; i<empty; i++)); do empty_bar+="▯"; done
 
   printf "%b%s%b%s%b" "$fill_color" "$bar" "$C_BAR_EMPTY" "$empty_bar" "$RST"
 }
@@ -106,7 +106,7 @@ fmt_duration() {
 
 # Model tag
 model_short=$(short_model "$model_id")
-segment_model="${C_MODEL}${BOLD}[${model_short}]${RST}"
+segment_model="${C_MODEL}${BOLD}${model_short}${RST}"
 
 # Hostname
 segment_host="${C_HOST}${BOLD}${host}${RST}"
