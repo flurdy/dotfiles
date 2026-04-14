@@ -245,7 +245,7 @@ C_BORDER='\033[38;2;70;70;70m'
 
 # Visible length: strip ANSI codes, count characters
 visible_len() {
-  printf '%b' "$1" | sed 's/\x1b\[[0-9;]*m//g' | wc -m | awk '{print $1}'
+  printf '%b' "$1" | sed $'s/\x1b\\[[0-9;]*m//g' | wc -m
 }
 
 # Pad a colored string to target visible width
