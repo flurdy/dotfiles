@@ -239,6 +239,9 @@ segment_cost="${C_COST}\$${cost_fmt}${RST}"
 duration_fmt=$(fmt_duration "$duration_ms")
 segment_time="${C_TIME}⏱ ${duration_fmt}${RST}"
 
+# Last updated timestamp
+segment_clock="${C_LABEL}$(date '+%H:%M')${RST}"
+
 # ===== TABLE LAYOUT WITH BORDERS =====
 
 C_BORDER='\033[38;2;70;70;70m'
@@ -283,7 +286,7 @@ r1_segs+=("$segment_path")
 # Row 2: Claude session info
 r2_segs=("$segment_model")
 [ -n "$segment_effort" ] && r2_segs+=("$segment_effort")
-r2_segs+=("$segment_ctx" "$segment_5h" "$segment_7d" "$segment_cost" "$segment_time")
+r2_segs+=("$segment_ctx" "$segment_5h" "$segment_7d" "$segment_cost" "$segment_time" "$segment_clock")
 
 # Compute widths for each row
 r1_widths=()
