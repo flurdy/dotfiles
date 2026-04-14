@@ -15,7 +15,6 @@ duration_ms=$(echo "$input" | jq -r '.cost.total_duration_ms // 0')
 ctx_pct=$(echo "$input" | jq -r '.context_window.used_percentage // 0')
 rate_5h_pct=$(echo "$input" | jq -r '.rate_limits.five_hour.used_percentage // 0')
 rate_7d_pct=$(echo "$input" | jq -r '.rate_limits.seven_day.used_percentage // 0')
-output_style=$(echo "$input" | jq -r '.output_style // empty')
 
 host=$(hostname -s)
 
@@ -109,7 +108,7 @@ model_short=$(short_model "$model_id")
 segment_model="${C_MODEL}${BOLD}[${model_short}]${RST}"
 
 # Hostname
-segment_host="${C_HOST}${BOLD} ${host}${RST}"
+segment_host="${C_HOST}${BOLD}${host}${RST}"
 
 # K8s context
 segment_k8s=""
@@ -161,7 +160,16 @@ if [ -d "$cwd/.git" ] || git -C "$cwd" rev-parse --git-dir &>/dev/null 2>&1; the
   fi
 fi
 
-line1="${segment_model} ${segment_host}"
+# Effort level (read from settings.json)
+segment_effort=""
+effort_val=$(jq -r '.effortLevel // empty' ~/.claude/settings.json 2>/dev/null)
+if [ -n "$effort_val" ]; then
+  segment_effort="${C_EFFORT}⚡${effort_val}${RST}"
+fi
+
+line1="${segment_model}"
+[ -n "$segment_effort" ] && line1="${line1} ${segment_effort}"
+line1="${line1}${SEP}${segment_host}"
 [ -n "$segment_k8s" ] && line1="${line1}${SEP}${segment_k8s}"
 line1="${line1}${SEP}${segment_path}"
 [ -n "$segment_git" ] && line1="${line1}${SEP}${segment_git}"
@@ -171,40 +179,27 @@ line1="${line1}${SEP}${segment_path}"
 # 5-hour rate limit bar
 pct_5h=${rate_5h_pct%.*}
 bar_5h=$(progress_bar "$pct_5h" 8)
-segment_5h="${bar_5h} ${C_LABEL}${pct_5h}% 5h${RST}"
+segment_5h="${bar_5h} ${C_LABEL}5h${RST}"
 
 # 7-day rate limit bar
 pct_7d=${rate_7d_pct%.*}
 bar_7d=$(progress_bar "$pct_7d" 6)
-segment_7d="${bar_7d} ${C_LABEL}${pct_7d}% 7d${RST}"
+segment_7d="${bar_7d} ${C_LABEL}7d${RST}"
 
 # Context window
 pct_ctx=${ctx_pct%.*}
 bar_ctx=$(progress_bar "$pct_ctx" 6)
-segment_ctx="${bar_ctx} ${C_LABEL}${pct_ctx}% ctx${RST}"
+segment_ctx="${bar_ctx} ${C_LABEL}ctx${RST}"
 
 # Session cost
 cost_fmt=$(printf "%.2f" "$cost_usd")
 segment_cost="${C_COST}\$${cost_fmt}${RST}"
-
-# Effort level
-segment_effort=""
-if [ -n "$output_style" ]; then
-  case "$output_style" in
-    *concise*|*minimal*) effort_label="concise" ;;
-    *normal*|*default*)  effort_label="normal" ;;
-    *verbose*)           effort_label="verbose" ;;
-    *)                   effort_label="$output_style" ;;
-  esac
-  segment_effort="${C_EFFORT}${effort_label}${RST}"
-fi
 
 # Session duration
 duration_fmt=$(fmt_duration "$duration_ms")
 segment_time="${C_TIME}⏱ ${duration_fmt}${RST}"
 
 line2="       ${segment_5h}${SEP}${segment_7d}${SEP}${segment_ctx}${SEP}${segment_cost}"
-[ -n "$segment_effort" ] && line2="${line2}${SEP}${segment_effort}"
 line2="${line2}${SEP}${segment_time}"
 
 # ===== Output =====
