@@ -242,11 +242,10 @@ segment_time="${C_TIME}⏱ ${duration_fmt}${RST}"
 # ===== TABLE LAYOUT WITH BORDERS =====
 
 C_BORDER='\033[38;2;70;70;70m'
-ANSI_STRIP=$'s/\x1b\[[0-9;]*[mK]//g'
 
 # Visible length: strip ANSI codes, count characters
 visible_len() {
-  printf '%b' "$1" | sed "$ANSI_STRIP" | tr -d '\n' | wc -m | tr -d ' '
+  printf '%b' "$1" | sed 's/\x1b\[[0-9;]*m//g' | wc -m | awk '{print $1}'
 }
 
 # Pad a colored string to target visible width
