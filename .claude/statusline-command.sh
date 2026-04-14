@@ -15,6 +15,7 @@ duration_ms=$(echo "$input" | jq -r '.cost.total_duration_ms // 0')
 ctx_pct=$(echo "$input" | jq -r '.context_window.used_percentage // 0')
 rate_5h_pct=$(echo "$input" | jq -r '.rate_limits.five_hour.used_percentage // 0')
 rate_7d_pct=$(echo "$input" | jq -r '.rate_limits.seven_day.used_percentage // 0')
+git_worktree=$(echo "$input" | jq -r '.workspace.git_worktree // empty')
 
 host=$(hostname -s)
 
@@ -152,10 +153,15 @@ if [ -d "$cwd/.git" ] || git -C "$cwd" rev-parse --git-dir &>/dev/null 2>&1; the
     if ! git -C "$cwd" diff --cached --quiet 2>/dev/null; then staged="✚"; fi
 
     status_icons="${dirty}${untracked}${staged}"
+    wt_icon=""
+    # Detect git worktree: .git is a file (not dir) in worktrees, or compare common-dir vs git-dir
+    if [ -f "$cwd/.git" ] || [ "$(git -C "$cwd" rev-parse --git-common-dir 2>/dev/null)" != "$(git -C "$cwd" rev-parse --git-dir 2>/dev/null)" ]; then
+      wt_icon=" 🌳"
+    fi
     if [ -n "$status_icons" ]; then
-      segment_git="${C_GIT_DIRTY} ${branch} ${status_icons}${RST}"
+      segment_git="${C_GIT_DIRTY} ${branch} ${status_icons}${wt_icon}${RST}"
     else
-      segment_git="${C_GIT} ${branch}${RST}"
+      segment_git="${C_GIT} ${branch}${wt_icon}${RST}"
     fi
   fi
 fi
@@ -199,7 +205,7 @@ segment_cost="${C_COST}\$${cost_fmt}${RST}"
 duration_fmt=$(fmt_duration "$duration_ms")
 segment_time="${C_TIME}⏱ ${duration_fmt}${RST}"
 
-line2="       ${segment_5h}${SEP}${segment_7d}${SEP}${segment_ctx}${SEP}${segment_cost}"
+line2="       ${segment_ctx}${SEP}${segment_5h}${SEP}${segment_7d}${SEP}${segment_cost}"
 line2="${line2}${SEP}${segment_time}"
 
 # ===== Output =====
