@@ -159,9 +159,9 @@ if [ -d "$cwd/.git" ] || git -C "$cwd" rev-parse --git-dir &>/dev/null 2>&1; the
       wt_icon=" 🌳"
     fi
     if [ -n "$status_icons" ]; then
-      segment_git="${C_GIT_DIRTY} ${branch} ${status_icons}${wt_icon}${RST}"
+      segment_git="${C_GIT_DIRTY}$(printf '\xef\x90\x98') ${branch} ${status_icons}${wt_icon}${RST}"
     else
-      segment_git="${C_GIT} ${branch}${wt_icon}${RST}"
+      segment_git="${C_GIT}$(printf '\xef\x90\x98') ${branch}${wt_icon}${RST}"
     fi
   fi
 fi
