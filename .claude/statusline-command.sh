@@ -106,9 +106,9 @@ short_model() {
 progress_bar() {
   local pct=${1%.*}  # truncate to int
   local width=${2:-10}
-  local filled=$(( pct * width / 100 ))
-  # Show at least 1 filled block if percentage > 0
-  [ "$pct" -gt 0 ] && [ "$filled" -eq 0 ] && filled=1
+  # Ceiling division so each block represents a clean 1/width slice
+  local filled=0
+  [ "$pct" -gt 0 ] && filled=$(( (pct * width + 99) / 100 ))
   [ $filled -gt $width ] && filled=$width
   local empty=$(( width - filled ))
 
@@ -267,7 +267,7 @@ render_compact() {
   if [ -n "$effort_val" ]; then
     local ev
     case "$effort_val" in
-      high) ev="H" ;; medium) ev="M" ;; low) ev="L" ;; *) ev="${effort_val:0:1}" ;;
+      low) ev="Lo" ;; medium) ev="Md" ;; high) ev="Hi" ;; xhigh) ev="Xh" ;; max) ev="Mx" ;; *) ev="${effort_val:0:2}" ;;
     esac
     seg_e=" ${C_EFFORT}⚡${ev}${RST}"
   fi
@@ -275,8 +275,9 @@ render_compact() {
   # Mini bars (3 wide, no labels)
   mini_bar() {
     local pct=${1%.*} width=3
-    local filled=$(( pct * width / 100 ))
-    [ "$pct" -gt 0 ] && [ "$filled" -eq 0 ] && filled=1
+    # Ceiling division so bands split evenly (1/3, 2/3, 3/3)
+    local filled=0
+    [ "$pct" -gt 0 ] && filled=$(( (pct * width + 99) / 100 ))
     [ $filled -gt $width ] && filled=$width
     local empty=$(( width - filled ))
     local fill_color="$C_BAR_FILL"
@@ -288,14 +289,70 @@ render_compact() {
     printf "%b%s%b%s%b" "$fill_color" "$bar" "$C_BAR_EMPTY" "$ebar" "$RST"
   }
 
-  local line="${segment_clock}"
-  line="${line}${SEP}${seg_m}${seg_e}"
-  line="${line}${SEP}$(mini_bar "$pct_ctx") $(mini_bar "$pct_5h") $(mini_bar "$pct_7d")"
-  line="${line}${SEP}${segment_time}"
-  line="${line}${SEP}${segment_path}"
-  [ -n "$segment_git" ] && line="${line}${SEP}${segment_git}"
+  # Build bordered cells: clock | model+effort | bars | time
+  local cells=()
+  cells+=("$segment_clock")
+  cells+=("${seg_m}${seg_e}")
+  cells+=("$(mini_bar "$pct_ctx") $(mini_bar "$pct_5h") $(mini_bar "$pct_7d")")
+  cells+=("$segment_time")
 
-  printf '%b' "$line"
+  local widths=()
+  for c in "${cells[@]}"; do widths+=($(( $(visible_len "$c") + 2 ))); done  # +2 for padding
+
+  # Compute divider positions and total width
+  local total_inner=0
+  for w in "${widths[@]}"; do total_inner=$(( total_inner + w + 1 )); done
+  total_inner=$(( total_inner - 1 ))
+  local total_width=$(( 1 + total_inner + 1 ))
+  local pR=$(( total_width - 1 ))
+
+  local divs=() pos=1
+  for ((i=0; i<${#widths[@]}-1; i++)); do
+    pos=$(( pos + widths[i] ))
+    divs+=($pos)
+    pos=$(( pos + 1 ))
+  done
+
+  # Build horizontal border line
+  hborder() {
+    local left="$1" mid="$2" right="$3"
+    local line="$left"
+    local col=1
+    local d=0
+    for ((col=1; col<pR; col++)); do
+      if (( d < ${#divs[@]} && col == divs[d] )); then
+        line+="$mid"; d=$((d+1))
+      else
+        line+="─"
+      fi
+    done
+    line+="$right"
+    printf '%b%s%b' "$C_BORDER" "$line" "$RST"
+  }
+
+  # Build trailing cells (k8s, path, git) with same divider style
+  [ -n "$segment_k8s" ] && cells+=("$segment_k8s")
+  cells+=("$segment_path")
+  [ -n "$segment_git" ] && cells+=("$segment_git")
+
+  # Recompute widths for the added cells
+  widths=()
+  for c in "${cells[@]}"; do widths+=($(( $(visible_len "$c") + 2 ))); done
+
+  # Row: cell │ cell │ ... │ cell
+  local row=""
+  for ((i=0; i<${#cells[@]}; i++)); do
+    local content=" ${cells[$i]} "
+    local vlen=$(visible_len "$content")
+    local pad=$(( widths[i] - vlen ))
+    (( pad < 0 )) && pad=0
+    printf -v padstr '%*s' "$pad" ""
+    (( i > 0 )) && row+=$(printf '%b│%b' "$C_BORDER" "$RST")
+    row+=$(printf '%b%s' "$RST" "$content${padstr}")
+  done
+
+  # Render single line with cell dividers
+  printf '%b' "$row"
 }
 
 # ===== TABLE (5 lines) =====
@@ -404,9 +461,29 @@ render_table() {
 }
 
 # ===== Output: choose mode =====
-# Set CLAUDE_STATUSLINE=table in .envrc for bordered table, otherwise compact
-if [ "${CLAUDE_STATUSLINE}" = "table" ]; then
-  render_table
-else
-  render_compact
-fi
+# Mode selection, in priority order:
+#   CLAUDE_STATUSLINE=table   → always the 5-line bordered table
+#   CLAUDE_STATUSLINE=compact → always the 1-line view
+#   CLAUDE_STATUSLINE=auto    → table when the terminal is tall enough (default)
+#
+# In auto mode the height comes from $LINES, which Claude Code sets before
+# running this command (requires Claude Code >= 2.1.153). Falls back to
+# `tput lines`, then to 24 rows when neither is available. The table needs
+# 5 rows; CLAUDE_STATUSLINE_MIN_ROWS (default 30) sets the switch-over height.
+
+term_rows="${LINES:-}"
+[ -z "$term_rows" ] && term_rows="$(tput lines 2>/dev/null)"
+case "$term_rows" in ''|*[!0-9]*) term_rows=24 ;; esac
+min_rows="${CLAUDE_STATUSLINE_MIN_ROWS:-30}"
+
+case "${CLAUDE_STATUSLINE:-auto}" in
+  table)   render_table ;;
+  compact) render_compact ;;
+  *)       # auto: table only when the window has room for it
+    if [ "$term_rows" -ge "$min_rows" ]; then
+      render_table
+    else
+      render_compact
+    fi
+    ;;
+esac
