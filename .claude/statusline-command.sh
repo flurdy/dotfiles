@@ -48,17 +48,22 @@ cache_git_status() {
     staged="0"
     if ! git -C "$cwd" diff --cached --quiet 2>/dev/null; then staged="1"; fi
 
+    # Detect a linked worktree by comparing the per-worktree git dir against
+    # the shared common dir. Both must be resolved to absolute form first:
+    # from a subdir of a normal repo, --git-dir is absolute but
+    # --git-common-dir is relative (../.git), which would otherwise false-flag.
+    local gitdir commondir
+    gitdir=$(git -C "$cwd" rev-parse --path-format=absolute --git-dir 2>/dev/null)
+    commondir=$(git -C "$cwd" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)
     is_worktree="0"
-    if [ -f "$cwd/.git" ] || [ "$(git -C "$cwd" rev-parse --git-common-dir 2>/dev/null)" != "$(git -C "$cwd" rev-parse --git-dir 2>/dev/null)" ]; then
-      is_worktree="1"
-    fi
+    [ -n "$gitdir" ] && [ "$gitdir" != "$commondir" ] && is_worktree="1"
 
     # In a worktree the path often hides the real repo (e.g.
     # ~/Code/blc/claude-blc-2/worktrees/foo). Derive it from the shared
     # git dir: basename of the dir that holds the common .git → repo name.
     repo=""
     if [ "$is_worktree" = "1" ]; then
-      repo=$(basename "$(dirname "$(git -C "$cwd" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)")" 2>/dev/null)
+      repo=$(basename "$(dirname "$commondir")" 2>/dev/null)
       [ "$repo" = "." ] || [ "$repo" = "/" ] && repo=""
     fi
   else
