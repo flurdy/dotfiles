@@ -35,7 +35,7 @@ cache_git_status() {
   fi
 
   # Cache miss or stale: refresh git status
-  local branch dirty untracked staged is_worktree
+  local branch dirty untracked staged is_worktree repo
   if [ -d "$cwd/.git" ] || git -C "$cwd" rev-parse --git-dir &>/dev/null 2>&1; then
     branch=$(git -C "$cwd" symbolic-ref --short HEAD 2>/dev/null || git -C "$cwd" describe --tags --exact-match 2>/dev/null || git -C "$cwd" rev-parse --short HEAD 2>/dev/null)
 
@@ -52,12 +52,21 @@ cache_git_status() {
     if [ -f "$cwd/.git" ] || [ "$(git -C "$cwd" rev-parse --git-common-dir 2>/dev/null)" != "$(git -C "$cwd" rev-parse --git-dir 2>/dev/null)" ]; then
       is_worktree="1"
     fi
+
+    # In a worktree the path often hides the real repo (e.g.
+    # ~/Code/blc/claude-blc-2/worktrees/foo). Derive it from the shared
+    # git dir: basename of the dir that holds the common .git → repo name.
+    repo=""
+    if [ "$is_worktree" = "1" ]; then
+      repo=$(basename "$(dirname "$(git -C "$cwd" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)")" 2>/dev/null)
+      [ "$repo" = "." ] || [ "$repo" = "/" ] && repo=""
+    fi
   else
-    branch="" dirty="0" untracked="0" staged="0" is_worktree="0"
+    branch="" dirty="0" untracked="0" staged="0" is_worktree="0" repo=""
   fi
 
   # Write cache
-  echo "$branch|$dirty|$untracked|$staged|$is_worktree" > "$cache_file" 2>/dev/null
+  echo "$branch|$dirty|$untracked|$staged|$is_worktree|$repo" > "$cache_file" 2>/dev/null
   cat "$cache_file"
 }
 
@@ -83,6 +92,7 @@ C_BAR_EMPTY='\033[38;2;60;60;60m'
 C_BAR_WARN='\033[38;2;220;180;40m'
 C_BAR_CRIT='\033[38;2;220;60;60m'
 C_LABEL='\033[38;2;120;120;120m'
+C_REPO='\033[1;38;2;120;200;120m'  # worktree's real repo name (pairs with 🌳)
 
 SEP="${C_SEP} │ ${RST}"
 
@@ -236,7 +246,7 @@ segment_path="${C_PATH}$(printf '\xef\x81\xbc') $(abbrev_path "$cwd")${RST}"
 
 # Git branch + status (cached)
 segment_git=""
-IFS='|' read -r branch dirty untracked staged is_worktree <<< "$(cache_git_status)"
+IFS='|' read -r branch dirty untracked staged is_worktree repo <<< "$(cache_git_status)"
 if [ -n "$branch" ]; then
   # Convert numeric flags back to visual icons
   dirty_icon=""
@@ -248,7 +258,13 @@ if [ -n "$branch" ]; then
 
   status_icons="${dirty_icon}${untracked_icon}${staged_icon}"
   wt_icon=""
-  [ "$is_worktree" = "1" ] && wt_icon=" 🌳"
+  if [ "$is_worktree" = "1" ]; then
+    if [ -n "$repo" ]; then
+      wt_icon=" 🌳 ${C_REPO}${repo}${RST}"   # show real repo, hidden by worktree path
+    else
+      wt_icon=" 🌳"
+    fi
+  fi
 
   if [ -n "$status_icons" ]; then
     segment_git="${C_GIT_DIRTY}$(printf '\xef\x90\x98') ${branch} ${status_icons}${wt_icon}${RST}"
