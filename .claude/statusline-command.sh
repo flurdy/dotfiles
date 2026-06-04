@@ -423,6 +423,9 @@ render_compact() {
 
   local W=${COLUMNS:-$(tput cols 2>/dev/null || echo 80)}
   case "$W" in ''|*[!0-9]*) W=80 ;; esac
+  # Leave a small safety gap (clip-last-column terminals, $COLUMNS resize lag).
+  W=$(( W - ${CLAUDE_STATUSLINE_FIT_MARGIN:-2} ))
+  (( W < 20 )) && W=20
 
   assemble; line_width
 
@@ -490,21 +493,26 @@ render_table() {
 
   local PAD=1
 
+  # Width budget (shared by the path-guard and the fall-back-to-compact check).
+  # The margin guards against terminals that clip the final column and against
+  # $COLUMNS lagging a resize.
+  local tcols=${COLUMNS:-$(tput cols 2>/dev/null || echo 200)}
+  case "$tcols" in ''|*[!0-9]*) tcols=200 ;; esac
+  local budget=$(( tcols - ${CLAUDE_STATUSLINE_FIT_MARGIN:-2} ))
+
   # Row 1: environment. Non-worktree shows the path. A worktree keeps the repo
-  # cell and adds the on-disk path too — but only when row 1 still fits the
-  # terminal width (the table itself doesn't reflow), else just repo + branch.
+  # cell and adds the on-disk path too — but only when row 1 still fits within
+  # the budget (the table itself doesn't reflow), else just repo + branch.
   local r1_segs=("$segment_host")
   [ -n "$segment_k8s" ] && r1_segs+=("$segment_k8s")
   if [ -n "$segment_repo" ]; then
-    local tw=${COLUMNS:-$(tput cols 2>/dev/null || echo 200)}
-    case "$tw" in ''|*[!0-9]*) tw=200 ;; esac
     local probe=("$segment_host")
     [ -n "$segment_k8s" ] && probe+=("$segment_k8s")
     probe+=("$segment_path" "$segment_repo")
     [ -n "$segment_git" ] && probe+=("$segment_git")
     local psum=2 s
     for s in "${probe[@]}"; do psum=$(( psum + $(visible_len "$s") + 2*PAD + 1 )); done
-    [ "$psum" -le "$tw" ] && r1_segs+=("$segment_path")
+    [ "$psum" -le "$budget" ] && r1_segs+=("$segment_path")
     r1_segs+=("$segment_repo")
   else
     r1_segs+=("$segment_path")
@@ -542,11 +550,9 @@ render_table() {
   local pR=$(( total_width - 1 ))
 
   # The table has an irreducible width (row 2's usage cells). If it won't fit
-  # the terminal even after dropping the path, fall back to the fully
+  # within the budget even after dropping the path, fall back to the fully
   # responsive compact line so we never overflow.
-  local tcols=${COLUMNS:-$(tput cols 2>/dev/null || echo 200)}
-  case "$tcols" in ''|*[!0-9]*) tcols=200 ;; esac
-  if [ "$total_width" -gt "$tcols" ]; then render_compact; return; fi
+  if [ "$total_width" -gt "$budget" ]; then render_compact; return; fi
 
   # Divider positions
   local r1_divs=() r2_divs=() pos
