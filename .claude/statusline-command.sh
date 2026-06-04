@@ -250,7 +250,14 @@ abbrev_path() {
 segment_path="${C_PATH}$(printf '\xef\x81\xbc') $(abbrev_path "$cwd")${RST}"
 
 # Git branch + status (cached)
+# segment_git  = branch + status icons (branch is truncatable in compact mode)
+# segment_repo = worktree's real repo as its own cell (replaces the path)
+# git_icon, branch, status_icons are left as globals so render_compact can
+# rebuild a truncated branch cell on demand.
 segment_git=""
+segment_repo=""
+status_icons=""
+git_icon=$(printf '\xef\x90\x98')
 IFS='|' read -r branch dirty untracked staged is_worktree repo <<< "$(cache_git_status)"
 if [ -n "$branch" ]; then
   # Convert numeric flags back to visual icons
@@ -260,21 +267,22 @@ if [ -n "$branch" ]; then
   [ "$untracked" = "1" ] && untracked_icon="…"
   staged_icon=""
   [ "$staged" = "1" ] && staged_icon="✚"
-
   status_icons="${dirty_icon}${untracked_icon}${staged_icon}"
-  wt_icon=""
-  if [ "$is_worktree" = "1" ]; then
-    if [ -n "$repo" ]; then
-      wt_icon=" 🌳 ${C_REPO}${repo}${RST}"   # show real repo, hidden by worktree path
-    else
-      wt_icon=" 🌳"
-    fi
-  fi
 
   if [ -n "$status_icons" ]; then
-    segment_git="${C_GIT_DIRTY}$(printf '\xef\x90\x98') ${branch} ${status_icons}${wt_icon}${RST}"
+    segment_git="${C_GIT_DIRTY}${git_icon} ${branch} ${status_icons}${RST}"
   else
-    segment_git="${C_GIT}$(printf '\xef\x90\x98') ${branch}${wt_icon}${RST}"
+    segment_git="${C_GIT}${git_icon} ${branch}${RST}"
+  fi
+
+  # Worktree: surface the real repo (the path's leaf is just the worktree dir,
+  # redundant with the branch) as its own cell.
+  if [ "$is_worktree" = "1" ]; then
+    if [ -n "$repo" ]; then
+      segment_repo="${C_REPO}🌳 ${repo}${RST}"
+    else
+      segment_repo="${C_REPO}🌳${RST}"
+    fi
   fi
 fi
 
@@ -332,7 +340,6 @@ render_compact() {
     *haiku*)  m1="Haiku" ;;
     *)        m1="$model_id" ;;
   esac
-  local seg_m="${C_MODEL}${BOLD}${m1}${RST}"
 
   local seg_e=""
   if [ -n "$effort_val" ]; then
@@ -340,7 +347,7 @@ render_compact() {
     case "$effort_val" in
       low) ev="Lo" ;; medium) ev="Md" ;; high) ev="Hi" ;; xhigh) ev="Xh" ;; max) ev="Mx" ;; *) ev="${effort_val:0:2}" ;;
     esac
-    seg_e=" ${C_EFFORT}⚡${ev}${RST}"
+    seg_e="${C_EFFORT}⚡${ev}${RST}"
   fi
 
   # Mini bars (3 wide, no labels)
@@ -357,70 +364,109 @@ render_compact() {
     for ((i=0; i<empty; i++)); do ebar+="▯"; done
     printf "%b%s%b%s%b" "$fill_color" "$bar" "$C_BAR_EMPTY" "$ebar" "$RST"
   }
+  local seg_bars
+  seg_bars="$(mini_bar "$pct_ctx" 20 50) $(mini_bar "$pct_5h") $(mini_bar "$pct_7d")"
 
-  # Build bordered cells: clock | model+effort | bars | time
-  local cells=()
-  cells+=("$segment_clock")
-  cells+=("${seg_m}${seg_e}")
-  cells+=("$(mini_bar "$pct_ctx" 20 50) $(mini_bar "$pct_5h") $(mini_bar "$pct_7d")")
-  cells+=("$segment_time")
+  # Location cell: in a worktree the repo stands in for the path (the path's
+  # leaf is just the worktree dir, redundant with the branch).
+  local seg_loc="$segment_path"
+  [ -n "$segment_repo" ] && seg_loc="$segment_repo"
 
-  local widths=()
-  for c in "${cells[@]}"; do widths+=($(( $(visible_len "$c") + 2 ))); done  # +2 for padding
-
-  # Compute divider positions and total width
-  local total_inner=0
-  for w in "${widths[@]}"; do total_inner=$(( total_inner + w + 1 )); done
-  total_inner=$(( total_inner - 1 ))
-  local total_width=$(( 1 + total_inner + 1 ))
-  local pR=$(( total_width - 1 ))
-
-  local divs=() pos=1
-  for ((i=0; i<${#widths[@]}-1; i++)); do
-    pos=$(( pos + widths[i] ))
-    divs+=($pos)
-    pos=$(( pos + 1 ))
-  done
-
-  # Build horizontal border line
-  hborder() {
-    local left="$1" mid="$2" right="$3"
-    local line="$left"
-    local col=1
-    local d=0
-    for ((col=1; col<pR; col++)); do
-      if (( d < ${#divs[@]} && col == divs[d] )); then
-        line+="$mid"; d=$((d+1))
-      else
-        line+="─"
-      fi
-    done
-    line+="$right"
-    printf '%b%s%b' "$C_BORDER" "$line" "$RST"
+  # Memoised display width — visible_len forks (sed|wc); cells repeat across
+  # truncate/drop passes, so cache by content and return via a global.
+  declare -A _vl
+  local _VLEN _LW
+  vlen() {
+    local k="$1"
+    if [ -n "${_vl[$k]+_}" ]; then _VLEN=${_vl[$k]}; return; fi
+    _VLEN=$(visible_len "$k"); _vl[$k]=$_VLEN
   }
 
-  # Build trailing cells (k8s, path, git) with same divider style
-  [ -n "$segment_k8s" ] && cells+=("$segment_k8s")
-  cells+=("$segment_path")
-  [ -n "$segment_git" ] && cells+=("$segment_git")
+  # Branch cell, rebuilt at a max length (truncates the branch name only,
+  # keeping the icon and status markers).
+  branch_cell() {
+    local max=$1 b="$branch"
+    [ -z "$b" ] && return
+    if [ -n "$max" ] && [ "$max" -gt 1 ] && [ "${#b}" -gt "$max" ]; then b="${b:0:max-1}…"; fi
+    if [ -n "$status_icons" ]; then
+      printf '%b%s %s %s%b' "$C_GIT_DIRTY" "$git_icon" "$b" "$status_icons" "$RST"
+    else
+      printf '%b%s %s%b' "$C_GIT" "$git_icon" "$b" "$RST"
+    fi
+  }
 
-  # Recompute widths for the added cells
-  widths=()
-  for c in "${cells[@]}"; do widths+=($(( $(visible_len "$c") + 2 ))); done
+  # Cell visibility (most-droppable first when narrow). The worktree repo is the
+  # location and is kept; the path is droppable.
+  local show_k8s=1 show_loc=1 show_dur=1 show_effort=1 show_clock=1
+  [ -z "$segment_k8s" ] && show_k8s=0
+  local bmax=""   # branch max length ("" = full)
 
-  # Row: cell │ cell │ ... │ cell
-  local row=""
+  local cells=()
+  assemble() {
+    cells=()
+    [ "$show_clock" = 1 ] && cells+=("$segment_clock")
+    if [ "$show_effort" = 1 ] && [ -n "$seg_e" ]; then
+      cells+=("${C_MODEL}${BOLD}${m1}${RST} ${seg_e}")
+    else
+      cells+=("${C_MODEL}${BOLD}${m1}${RST}")
+    fi
+    cells+=("$seg_bars")
+    [ "$show_dur" = 1 ] && cells+=("$segment_time")
+    [ "$show_k8s" = 1 ] && [ -n "$segment_k8s" ] && cells+=("$segment_k8s")
+    [ "$show_loc" = 1 ] && [ -n "$seg_loc" ] && cells+=("$seg_loc")
+    local bc; bc="$(branch_cell "$bmax")"
+    [ -n "$bc" ] && cells+=("$bc")
+  }
+  line_width() {
+    local total=0 n=${#cells[@]} c
+    for c in "${cells[@]}"; do vlen "$c"; total=$(( total + _VLEN + 2 )); done
+    (( n > 1 )) && total=$(( total + n - 1 ))
+    _LW=$total
+  }
+
+  local W=${COLUMNS:-$(tput cols 2>/dev/null || echo 80)}
+  case "$W" in ''|*[!0-9]*) W=80 ;; esac
+
+  assemble; line_width
+
+  # 1) Truncate the long branch toward a floor before dropping anything.
+  local floor=12
+  while [ "$_LW" -gt "$W" ] && [ "${#branch}" -gt "$floor" ] && { [ -z "$bmax" ] || [ "$bmax" -gt "$floor" ]; }; do
+    if [ -z "$bmax" ]; then bmax=$(( ${#branch} - 2 )); else bmax=$(( bmax - 2 )); fi
+    (( bmax < floor )) && bmax=$floor
+    assemble; line_width
+  done
+
+  # 2) Drop low-priority cells in order (path drops before clock; repo kept).
+  local drop_order f
+  if [ -n "$segment_repo" ]; then
+    drop_order="show_k8s show_dur show_effort show_clock"
+  else
+    drop_order="show_k8s show_loc show_dur show_effort show_clock"
+  fi
+  for f in $drop_order; do
+    [ "$_LW" -le "$W" ] && break
+    printf -v "$f" '%s' 0; assemble; line_width
+  done
+
+  # 3) Last resort: hard-truncate the branch, then drop the location cell.
+  while [ "$_LW" -gt "$W" ] && [ -n "$bmax" ] && [ "$bmax" -gt 6 ]; do
+    bmax=$(( bmax - 2 )); assemble; line_width
+  done
+  if [ "$_LW" -gt "$W" ] && [ "$show_loc" = 1 ]; then show_loc=0; assemble; line_width; fi
+
+  # Render row: cell │ cell │ ...
+  local widths=() c
+  for c in "${cells[@]}"; do vlen "$c"; widths+=($(( _VLEN + 2 ))); done
+  local row="" i
   for ((i=0; i<${#cells[@]}; i++)); do
     local content=" ${cells[$i]} "
-    local vlen=$(visible_len "$content")
-    local pad=$(( widths[i] - vlen ))
-    (( pad < 0 )) && pad=0
+    vlen "$content"
+    local pad=$(( widths[i] - _VLEN )); (( pad < 0 )) && pad=0
     printf -v padstr '%*s' "$pad" ""
     (( i > 0 )) && row+=$(printf '%b│%b' "$C_BORDER" "$RST")
     row+=$(printf '%b%s' "$RST" "$content${padstr}")
   done
-
-  # Render single line with cell dividers
   printf '%b' "$row"
 }
 
@@ -451,10 +497,10 @@ render_table() {
 
   local PAD=1
 
-  # Row 1: environment
+  # Row 1: environment. In a worktree the repo cell stands in for the path.
   local r1_segs=("$segment_host")
   [ -n "$segment_k8s" ] && r1_segs+=("$segment_k8s")
-  r1_segs+=("$segment_path")
+  if [ -n "$segment_repo" ]; then r1_segs+=("$segment_repo"); else r1_segs+=("$segment_path"); fi
   [ -n "$segment_git" ] && r1_segs+=("$segment_git")
 
   # Row 2: Claude session info
