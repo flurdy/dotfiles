@@ -101,22 +101,72 @@ short_model() {
   esac
 }
 
+# --- Helper: banded fill count ---
+# Splits the bar into 3 zones aligned with the green/warn/crit colors so
+# that bar count tracks color tier (e.g. width=3 → 1 green, 2 yellow, 3 red).
+# Within each zone fill scales linearly. Width % 3 remainder goes to the
+# crit band first, then warn, so the danger zone is never the smallest.
+banded_fill() {
+  local pct=$1 width=$2 warn=$3 crit=$4
+  local band=$(( width / 3 ))
+  local rem=$(( width - band * 3 ))
+  local g_size=$band w_size=$band c_size=$band
+  (( rem >= 1 )) && c_size=$(( c_size + 1 ))
+  (( rem >= 2 )) && w_size=$(( w_size + 1 ))
+  local g_max=$g_size
+  local w_max=$(( g_max + w_size ))
+
+  local result=0
+  if (( pct <= 0 )); then
+    result=0
+  elif (( pct >= crit )); then
+    local span=$(( 100 - crit ))
+    if (( span <= 0 || c_size <= 0 )); then
+      result=$width
+    else
+      local extra=$(( ((pct - crit) * c_size + span - 1) / span ))
+      (( extra < 1 )) && extra=1
+      result=$(( w_max + extra ))
+    fi
+  elif (( pct >= warn )); then
+    local span=$(( crit - warn ))
+    if (( span <= 0 || w_size <= 0 )); then
+      result=$w_max
+    else
+      local extra=$(( ((pct - warn) * w_size + span - 1) / span ))
+      (( extra < 1 )) && extra=1
+      result=$(( g_max + extra ))
+    fi
+  else
+    if (( warn <= 0 || g_size <= 0 )); then
+      result=0
+    else
+      local extra=$(( (pct * g_size + warn - 1) / warn ))
+      (( extra < 1 )) && extra=1
+      result=$extra
+    fi
+  fi
+
+  (( result > width )) && result=$width
+  (( result < 0 )) && result=0
+  echo $result
+}
+
 # --- Helper: progress bar ---
-# Usage: progress_bar <percentage> <width>
+# Usage: progress_bar <percentage> <width> [warn_pct] [crit_pct]
 progress_bar() {
   local pct=${1%.*}  # truncate to int
   local width=${2:-10}
-  # Ceiling division so each block represents a clean 1/width slice
-  local filled=0
-  [ "$pct" -gt 0 ] && filled=$(( (pct * width + 99) / 100 ))
-  [ $filled -gt $width ] && filled=$width
+  local warn_pct=${3:-60}
+  local crit_pct=${4:-80}
+  local filled=$(banded_fill "$pct" "$width" "$warn_pct" "$crit_pct")
   local empty=$(( width - filled ))
 
   # Color based on severity
   local fill_color="$C_BAR_FILL"
-  if [ "$pct" -ge 80 ]; then
+  if [ "$pct" -ge "$crit_pct" ]; then
     fill_color="$C_BAR_CRIT"
-  elif [ "$pct" -ge 60 ]; then
+  elif [ "$pct" -ge "$warn_pct" ]; then
     fill_color="$C_BAR_WARN"
   fi
 
@@ -226,9 +276,9 @@ pct_7d=${rate_7d_pct%.*}
 bar_7d=$(progress_bar "$pct_7d" 6)
 segment_7d="${bar_7d} ${C_LABEL}7d${RST}"
 
-# Context window
+# Context window — tighter thresholds: bloat starts ~20%, painful ~50% on 1M models
 pct_ctx=${ctx_pct%.*}
-bar_ctx=$(progress_bar "$pct_ctx" 6)
+bar_ctx=$(progress_bar "$pct_ctx" 6 20 50)
 segment_ctx="${bar_ctx} ${C_LABEL}ctx${RST}"
 
 # Session cost
@@ -275,14 +325,12 @@ render_compact() {
   # Mini bars (3 wide, no labels)
   mini_bar() {
     local pct=${1%.*} width=3
-    # Ceiling division so bands split evenly (1/3, 2/3, 3/3)
-    local filled=0
-    [ "$pct" -gt 0 ] && filled=$(( (pct * width + 99) / 100 ))
-    [ $filled -gt $width ] && filled=$width
+    local warn_pct=${2:-60} crit_pct=${3:-80}
+    local filled=$(banded_fill "$pct" "$width" "$warn_pct" "$crit_pct")
     local empty=$(( width - filled ))
     local fill_color="$C_BAR_FILL"
-    (( pct >= 80 )) && fill_color="$C_BAR_CRIT"
-    (( pct >= 60 && pct < 80 )) && fill_color="$C_BAR_WARN"
+    (( pct >= crit_pct )) && fill_color="$C_BAR_CRIT"
+    (( pct >= warn_pct && pct < crit_pct )) && fill_color="$C_BAR_WARN"
     local bar="" ebar=""
     for ((i=0; i<filled; i++)); do bar+="▮"; done
     for ((i=0; i<empty; i++)); do ebar+="▯"; done
@@ -293,7 +341,7 @@ render_compact() {
   local cells=()
   cells+=("$segment_clock")
   cells+=("${seg_m}${seg_e}")
-  cells+=("$(mini_bar "$pct_ctx") $(mini_bar "$pct_5h") $(mini_bar "$pct_7d")")
+  cells+=("$(mini_bar "$pct_ctx" 20 50) $(mini_bar "$pct_5h") $(mini_bar "$pct_7d")")
   cells+=("$segment_time")
 
   local widths=()
