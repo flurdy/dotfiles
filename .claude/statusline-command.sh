@@ -517,12 +517,12 @@ render_table() {
 # In auto mode the height comes from $LINES, which Claude Code sets before
 # running this command (requires Claude Code >= 2.1.153). Falls back to
 # `tput lines`, then to 24 rows when neither is available. The table needs
-# 5 rows; CLAUDE_STATUSLINE_MIN_ROWS (default 30) sets the switch-over height.
+# 5 rows; CLAUDE_STATUSLINE_MIN_ROWS (default 50) sets the switch-over height.
 
 term_rows="${LINES:-}"
 [ -z "$term_rows" ] && term_rows="$(tput lines 2>/dev/null)"
 case "$term_rows" in ''|*[!0-9]*) term_rows=24 ;; esac
-min_rows="${CLAUDE_STATUSLINE_MIN_ROWS:-30}"
+min_rows="${CLAUDE_STATUSLINE_MIN_ROWS:-50}"
 
 case "${CLAUDE_STATUSLINE:-auto}" in
   table)   render_table ;;
