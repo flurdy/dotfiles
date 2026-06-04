@@ -75,6 +75,50 @@ cache_git_status() {
   cat "$cache_file"
 }
 
+# --- Non-blocking PR lookup (cached) ---
+# Prints the last-known PR for $branch as "number|state|isDraft" (or nothing).
+# Never blocks: it echoes whatever is cached this instant and, only when that
+# cache is stale, kicks off a fully-detached background `gh` refresh for next
+# time. Empty results are cached too, so branches without a PR aren't re-queried
+# every TTL. Disable entirely with CLAUDE_STATUSLINE_PR=0.
+cache_pr() {
+  local branch="$1"
+  [ -z "$branch" ] && return
+  [ "${CLAUDE_STATUSLINE_PR:-1}" = "0" ] && return
+  command -v gh >/dev/null 2>&1 || return
+
+  local ttl="${CLAUDE_STATUSLINE_PR_TTL:-120}" lock_ttl=30 now age key cache lock
+  key=$(printf '%s' "$cwd|$branch" | cksum | tr -cd '0-9' | cut -c1-12)
+  cache="/tmp/statusline-pr-$key"
+  lock="$cache.lock"
+  now=$(date +%s)
+
+  # Emit the last-known value immediately (possibly stale) — this is the only
+  # output, so the caller never waits on the network.
+  [ -f "$cache" ] && cat "$cache"
+
+  age=$ttl
+  [ -f "$cache" ] && age=$(( now - $(stat -c %Y "$cache" 2>/dev/null || echo 0) ))
+  if [ "$age" -ge "$ttl" ]; then
+    local lage=$lock_ttl
+    [ -f "$lock" ] && lage=$(( now - $(stat -c %Y "$lock" 2>/dev/null || echo 0) ))
+    if [ "$lage" -ge "$lock_ttl" ]; then
+      : > "$lock"
+      # Detached: own fds redirected away from the caller's command-substitution
+      # pipe, so $(cache_pr ...) returns without waiting for gh. `mv` runs
+      # unconditionally (gh exits non-zero when a branch has no PR) so the empty
+      # "no PR" result is cached too and isn't re-queried until the TTL lapses.
+      # `timeout` bounds a hung gh so background refreshes can't pile up.
+      ( cd "$cwd" 2>/dev/null
+        timeout 8 gh pr view "$branch" --json number,state,isDraft \
+           --jq '"\(.number)|\(.state)|\(.isDraft)"' 2>/dev/null > "$cache.tmp"
+        mv -f "$cache.tmp" "$cache" 2>/dev/null
+      ) </dev/null >/dev/null 2>&1 &
+      disown 2>/dev/null
+    fi
+  fi
+}
+
 # --- Colors ---
 RST='\033[0m'
 BOLD='\033[1m'
@@ -98,6 +142,9 @@ C_BAR_WARN='\033[38;2;220;180;40m'
 C_BAR_CRIT='\033[38;2;220;60;60m'
 C_LABEL='\033[38;2;120;120;120m'
 C_REPO='\033[1;38;2;120;200;120m'  # worktree's real repo name (pairs with 🌳)
+C_PR_OPEN='\033[38;2;87;171;90m'     # open PR
+C_PR_DRAFT='\033[38;2;140;140;140m'  # draft PR
+C_PR_MERGED='\033[38;2;163;113;247m' # merged PR
 
 SEP="${C_SEP} │ ${RST}"
 
@@ -286,6 +333,22 @@ if [ -n "$branch" ]; then
   fi
 fi
 
+# Pull request for the current branch (cached, non-blocking) → its own cell.
+segment_pr=""
+if [ -n "$branch" ]; then
+  IFS='|' read -r pr_num pr_state pr_draft <<< "$(cache_pr "$branch")"
+  if [ -n "$pr_num" ]; then
+    pr_icon=$(printf '\xef\x90\x87')   # nf-oct-git_pull_request
+    case "$pr_state" in
+      OPEN)   [ "$pr_draft" = "true" ] \
+                && segment_pr="${C_PR_DRAFT}${pr_icon} #${pr_num}${RST}" \
+                || segment_pr="${C_PR_OPEN}${pr_icon} #${pr_num}${RST}" ;;
+      MERGED) segment_pr="${C_PR_MERGED}${pr_icon} #${pr_num}${RST}" ;;
+      *)      segment_pr="" ;;   # CLOSED → hide
+    esac
+  fi
+fi
+
 # Effort level (read from settings.json)
 segment_effort=""
 effort_val=$(jq -r '.effortLevel // empty' ~/.claude/settings.json 2>/dev/null)
@@ -393,7 +456,7 @@ render_compact() {
   # Cell visibility (most-droppable first when narrow). The path is droppable
   # (shown when wide for on-disk context); the worktree repo is kept until the
   # very last resort.
-  local show_k8s=1 show_path=1 show_repo=1 show_dur=1 show_effort=1 show_clock=1
+  local show_k8s=1 show_path=1 show_repo=1 show_dur=1 show_effort=1 show_clock=1 show_pr=1
   [ -z "$segment_k8s" ] && show_k8s=0
   local bmax=""   # branch max length ("" = full)
 
@@ -413,6 +476,7 @@ render_compact() {
     [ "$show_repo" = 1 ] && [ -n "$segment_repo" ] && cells+=("$segment_repo")
     local bc; bc="$(branch_cell "$bmax")"
     [ -n "$bc" ] && cells+=("$bc")
+    [ "$show_pr" = 1 ] && [ -n "$segment_pr" ] && cells+=("$segment_pr")
   }
   line_width() {
     local total=0 n=${#cells[@]} c
@@ -430,11 +494,11 @@ render_compact() {
   assemble; line_width
 
   # Fit to width by shedding the least-important things first, so the branch
-  # (worktree name) and repo stay intact as long as possible. The path is
+  # (worktree name), repo and PR stay intact as long as possible. The path is
   # bonus context shown only when there's room:
-  #   k8s → path → duration → effort → clock → truncate branch → drop repo.
+  #   k8s → path → duration → effort → clock → PR → truncate branch → drop repo.
   local f
-  for f in show_k8s show_path show_dur show_effort show_clock; do
+  for f in show_k8s show_path show_dur show_effort show_clock show_pr; do
     [ "$_LW" -le "$W" ] && break
     printf -v "$f" '%s' 0; assemble; line_width
   done
@@ -510,6 +574,7 @@ render_table() {
     [ -n "$segment_k8s" ] && probe+=("$segment_k8s")
     probe+=("$segment_path" "$segment_repo")
     [ -n "$segment_git" ] && probe+=("$segment_git")
+    [ -n "$segment_pr" ] && probe+=("$segment_pr")
     local psum=2 s
     for s in "${probe[@]}"; do psum=$(( psum + $(visible_len "$s") + 2*PAD + 1 )); done
     [ "$psum" -le "$budget" ] && r1_segs+=("$segment_path")
@@ -518,6 +583,7 @@ render_table() {
     r1_segs+=("$segment_path")
   fi
   [ -n "$segment_git" ] && r1_segs+=("$segment_git")
+  [ -n "$segment_pr" ] && r1_segs+=("$segment_pr")
 
   # Row 2: Claude session info
   local r2_segs=("$segment_model")
