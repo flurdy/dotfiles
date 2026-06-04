@@ -367,11 +367,6 @@ render_compact() {
   local seg_bars
   seg_bars="$(mini_bar "$pct_ctx" 20 50) $(mini_bar "$pct_5h") $(mini_bar "$pct_7d")"
 
-  # Location cell: in a worktree the repo stands in for the path (the path's
-  # leaf is just the worktree dir, redundant with the branch).
-  local seg_loc="$segment_path"
-  [ -n "$segment_repo" ] && seg_loc="$segment_repo"
-
   # Memoised display width — visible_len forks (sed|wc); cells repeat across
   # truncate/drop passes, so cache by content and return via a global.
   declare -A _vl
@@ -395,9 +390,10 @@ render_compact() {
     fi
   }
 
-  # Cell visibility (most-droppable first when narrow). The worktree repo is the
-  # location and is kept; the path is droppable.
-  local show_k8s=1 show_loc=1 show_dur=1 show_effort=1 show_clock=1
+  # Cell visibility (most-droppable first when narrow). The path is droppable
+  # (shown when wide for on-disk context); the worktree repo is kept until the
+  # very last resort.
+  local show_k8s=1 show_path=1 show_repo=1 show_dur=1 show_effort=1 show_clock=1
   [ -z "$segment_k8s" ] && show_k8s=0
   local bmax=""   # branch max length ("" = full)
 
@@ -413,7 +409,8 @@ render_compact() {
     cells+=("$seg_bars")
     [ "$show_dur" = 1 ] && cells+=("$segment_time")
     [ "$show_k8s" = 1 ] && [ -n "$segment_k8s" ] && cells+=("$segment_k8s")
-    [ "$show_loc" = 1 ] && [ -n "$seg_loc" ] && cells+=("$seg_loc")
+    [ "$show_path" = 1 ] && [ -n "$segment_path" ] && cells+=("$segment_path")
+    [ "$show_repo" = 1 ] && [ -n "$segment_repo" ] && cells+=("$segment_repo")
     local bc; bc="$(branch_cell "$bmax")"
     [ -n "$bc" ] && cells+=("$bc")
   }
@@ -429,31 +426,27 @@ render_compact() {
 
   assemble; line_width
 
-  # 1) Truncate the long branch toward a floor before dropping anything.
-  local floor=12
-  while [ "$_LW" -gt "$W" ] && [ "${#branch}" -gt "$floor" ] && { [ -z "$bmax" ] || [ "$bmax" -gt "$floor" ]; }; do
-    if [ -z "$bmax" ]; then bmax=$(( ${#branch} - 2 )); else bmax=$(( bmax - 2 )); fi
-    (( bmax < floor )) && bmax=$floor
-    assemble; line_width
-  done
-
-  # 2) Drop low-priority cells in order (path drops before clock; repo kept).
-  local drop_order f
-  if [ -n "$segment_repo" ]; then
-    drop_order="show_k8s show_dur show_effort show_clock"
-  else
-    drop_order="show_k8s show_loc show_dur show_effort show_clock"
-  fi
-  for f in $drop_order; do
+  # Fit to width by shedding the least-important things first, so the branch
+  # (worktree name) and repo stay intact as long as possible. The path is
+  # bonus context shown only when there's room:
+  #   k8s → path → duration → effort → clock → truncate branch → drop repo.
+  local f
+  for f in show_k8s show_path show_dur show_effort show_clock; do
     [ "$_LW" -le "$W" ] && break
     printf -v "$f" '%s' 0; assemble; line_width
   done
 
-  # 3) Last resort: hard-truncate the branch, then drop the location cell.
-  while [ "$_LW" -gt "$W" ] && [ -n "$bmax" ] && [ "$bmax" -gt 6 ]; do
-    bmax=$(( bmax - 2 )); assemble; line_width
+  # Still over: truncate the branch gradually toward a hard minimum.
+  while [ "$_LW" -gt "$W" ] && [ "${#branch}" -gt 6 ] && { [ -z "$bmax" ] || [ "$bmax" -gt 6 ]; }; do
+    if [ -z "$bmax" ]; then bmax=$(( ${#branch} - 2 )); else bmax=$(( bmax - 2 )); fi
+    (( bmax < 6 )) && bmax=6
+    assemble; line_width
   done
-  if [ "$_LW" -gt "$W" ] && [ "$show_loc" = 1 ]; then show_loc=0; assemble; line_width; fi
+
+  # Absolute last resort: drop the repo cell.
+  if [ "$_LW" -gt "$W" ] && [ "$show_repo" = 1 ] && [ -n "$segment_repo" ]; then
+    show_repo=0; assemble; line_width
+  fi
 
   # Render row: cell │ cell │ ...
   local widths=() c
@@ -497,10 +490,25 @@ render_table() {
 
   local PAD=1
 
-  # Row 1: environment. In a worktree the repo cell stands in for the path.
+  # Row 1: environment. Non-worktree shows the path. A worktree keeps the repo
+  # cell and adds the on-disk path too — but only when row 1 still fits the
+  # terminal width (the table itself doesn't reflow), else just repo + branch.
   local r1_segs=("$segment_host")
   [ -n "$segment_k8s" ] && r1_segs+=("$segment_k8s")
-  if [ -n "$segment_repo" ]; then r1_segs+=("$segment_repo"); else r1_segs+=("$segment_path"); fi
+  if [ -n "$segment_repo" ]; then
+    local tw=${COLUMNS:-$(tput cols 2>/dev/null || echo 200)}
+    case "$tw" in ''|*[!0-9]*) tw=200 ;; esac
+    local probe=("$segment_host")
+    [ -n "$segment_k8s" ] && probe+=("$segment_k8s")
+    probe+=("$segment_path" "$segment_repo")
+    [ -n "$segment_git" ] && probe+=("$segment_git")
+    local psum=2 s
+    for s in "${probe[@]}"; do psum=$(( psum + $(visible_len "$s") + 2*PAD + 1 )); done
+    [ "$psum" -le "$tw" ] && r1_segs+=("$segment_path")
+    r1_segs+=("$segment_repo")
+  else
+    r1_segs+=("$segment_path")
+  fi
   [ -n "$segment_git" ] && r1_segs+=("$segment_git")
 
   # Row 2: Claude session info
@@ -532,6 +540,13 @@ render_table() {
 
   local total_width=$(( 1 + total_inner + 1 ))
   local pR=$(( total_width - 1 ))
+
+  # The table has an irreducible width (row 2's usage cells). If it won't fit
+  # the terminal even after dropping the path, fall back to the fully
+  # responsive compact line so we never overflow.
+  local tcols=${COLUMNS:-$(tput cols 2>/dev/null || echo 200)}
+  case "$tcols" in ''|*[!0-9]*) tcols=200 ;; esac
+  if [ "$total_width" -gt "$tcols" ]; then render_compact; return; fi
 
   # Divider positions
   local r1_divs=() r2_divs=() pos
