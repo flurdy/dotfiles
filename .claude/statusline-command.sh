@@ -85,6 +85,11 @@ cache_pr() {
   local branch="$1"
   [ -z "$branch" ] && return
   [ "${CLAUDE_STATUSLINE_PR:-1}" = "0" ] && return
+  # Default branches rarely have a PR of their own — skip the lookup there.
+  # Override the list with CLAUDE_STATUSLINE_PR_SKIP (space-separated).
+  case " ${CLAUDE_STATUSLINE_PR_SKIP:-main master develop trunk} " in
+    *" $branch "*) return ;;
+  esac
   command -v gh >/dev/null 2>&1 || return
 
   local ttl="${CLAUDE_STATUSLINE_PR_TTL:-120}" lock_ttl=30 now age key cache lock
