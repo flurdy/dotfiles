@@ -47,10 +47,10 @@ display_bead() {
 role_for_prompt() {
   case "$1" in
     /watch-release|/watch-release\ *|\$watch-release|\$watch-release\ *)
-      printf '🚢 releases'
+      printf '🚢-releases'
       ;;
     /watch-prs|/watch-prs\ *|\$watch-prs|\$watch-prs\ *)
-      printf '👀 PRs'
+      printf '👀-PRs'
       ;;
   esac
 }
@@ -69,7 +69,7 @@ session_role() {
     [ -n "$role" ] && printf '%s' "$role" > "$role_file"
   fi
 
-  [ -r "$role_file" ] && cat "$role_file"
+  [ -r "$role_file" ] && sed -E 's/[[:space:]]+/-/g' "$role_file"
 }
 
 short_branch() {
