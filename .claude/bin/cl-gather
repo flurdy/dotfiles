@@ -55,24 +55,31 @@ if command -v gh >/dev/null 2>&1; then
   done < "$cache" 2>/dev/null
 fi
 
-# --- handoff slug, keyed by worktree path -----------------------------------
-declare -A HO_SLUG
-declare -a HO_EXTRA_PATH HO_EXTRA_SLUG HO_EXTRA_BRANCH
+# --- handoffs owned by THIS repo --------------------------------------------
+# list.sh tags every handoff with its owning repo remote and tells us the
+# current repo (---CURRENT-REPO---). We surface ONLY this repo's handoffs, each
+# as its own selectable row, rather than the old "target dir exists on disk and
+# isn't a worktree of here" heuristic — which leaked sibling-repo handoffs (e.g.
+# letterbox-root's notes showed up inside the nested scoring checkout).
+CURRENT_REPO=""
+HANDOFFS_DIR_LS="$HOME/.claude/handoffs"
+declare -a HO_FILE HO_SLUG HO_PATH HO_BRANCH HO_DATE
 if [ -x "$HANDOFF_LIST" ]; then
-  in_section=0
+  section=""
   while IFS= read -r line; do
-    case "$line" in
-      ---HANDOFFS---) in_section=1; continue ;;
-      ---*---) in_section=0; continue ;;
+    case "$line" in ---*---) section="$line"; continue ;; esac
+    case "$section" in
+      ---CURRENT-REPO---) [ -z "$CURRENT_REPO" ] && CURRENT_REPO="$line" ;;
+      ---HANDOFFS-DIR---) [ -n "$line" ] && HANDOFFS_DIR_LS="$line" ;;
+      ---HANDOFFS---)
+        IFS='|' read -r hfile hdate hslug hpath hbranch hrepo _rest <<<"$line"
+        [ -z "$hfile" ] && continue
+        # owning-repo filter (skip only when we actually know the current repo)
+        [ -n "$CURRENT_REPO" ] && [ "$hrepo" != "$CURRENT_REPO" ] && continue
+        HO_FILE+=("$hfile"); HO_SLUG+=("$hslug"); HO_PATH+=("$hpath")
+        HO_BRANCH+=("$hbranch"); HO_DATE+=("$hdate")
+        ;;
     esac
-    [ "$in_section" = 1 ] || continue
-    IFS='|' read -r _file _date slug hpath hbranch _rest <<<"$line"
-    [ -z "$hpath" ] && continue
-    HO_SLUG[$hpath]="$slug"
-    # handoff target that exists on disk but isn't a live worktree of THIS repo
-    if [ -d "$hpath" ] && ! git -C "$MAIN" worktree list --porcelain | grep -qx "worktree $hpath"; then
-      HO_EXTRA_PATH+=("$hpath"); HO_EXTRA_SLUG+=("$slug"); HO_EXTRA_BRANCH+=("$hbranch")
-    fi
   done < <("$HANDOFF_LIST" 2>/dev/null)
 fi
 
@@ -85,9 +92,10 @@ state_markers() {
   printf '%s' "$m"
 }
 
-# --- build rows: DISPLAY \t TYPE \t PATH \t BRANCH \t SESSION ----------------
+# --- build rows: DISPLAY \t TYPE \t PATH \t BRANCH \t SESSION \t NOTE ---------
+# NOTE (6th col) is the handoff file to load; empty for non-handoff rows.
 rows=""
-add_row() { rows+="$1"$'\t'"$2"$'\t'"$3"$'\t'"$4"$'\t'"$5"$'\n'; }
+add_row() { rows+="$1"$'\t'"$2"$'\t'"$3"$'\t'"$4"$'\t'"$5"$'\t'"${6:-}"$'\n'; }
 
 # walk worktrees
 cur_path=""; cur_branch=""
@@ -101,7 +109,6 @@ flush_wt() {
     local disp="$cur_branch"
     [ -n "${PR_NUM[$cur_branch]:-}" ] && disp+="   PR#${PR_NUM[$cur_branch]} ${PR_REV[$cur_branch]}"
     [ -n "$mark" ] && disp+="   $mark"
-    [ -n "${HO_SLUG[$cur_path]:-}" ] && disp+="   has handoff"
     add_row "$disp" wt "$cur_path" "$cur_branch" continue
   fi
   cur_path=""; cur_branch=""
@@ -115,11 +122,15 @@ while IFS= read -r l; do
 done < <(git -C "$MAIN" worktree list --porcelain)
 flush_wt
 
-# standalone handoff rows (target exists, not a live worktree of this repo)
-for i in "${!HO_EXTRA_PATH[@]}"; do
-  hp="${HO_EXTRA_PATH[$i]/#$HOME/\~}"
-  add_row "handoff: ${HO_EXTRA_SLUG[$i]}   ($hp)" \
-          handoff "${HO_EXTRA_PATH[$i]}" "${HO_EXTRA_BRANCH[$i]}" continue
+# one row per owned handoff (newest first). A handoff is a markdown note, not a
+# recorded conversation — there is nothing for `claude --continue` to resume (it
+# would dump "No conversation found"). Session `handoff` launches a fresh claude
+# in the pick-up dir, seeded by the caller to load that specific note.
+for i in "${!HO_FILE[@]}"; do
+  hp="${HO_PATH[$i]/#$HOME/\~}"
+  add_row "handoff: ${HO_SLUG[$i]}   (${HO_DATE[$i]} · $hp)" \
+          handoff "${HO_PATH[$i]}" "${HO_BRANCH[$i]}" handoff \
+          "$HANDOFFS_DIR_LS/${HO_FILE[$i]}"
 done
 
 # new worktree
@@ -143,11 +154,11 @@ key=$(printf '%s\n' "$sel" | sed -n '1p')
 line=$(printf '%s\n' "$sel" | sed -n '2p')
 [ -z "$line" ] && exit 1
 
-IFS=$'\t' read -r _disp type path branch session <<<"$line"
+IFS=$'\t' read -r _disp type path branch session note <<<"$line"
 case "$key" in
   ctrl-n) session=new ;;
   ctrl-r) session=resume ;;
   ctrl-f) session=fork ;;
 esac
 
-printf '%s\t%s\t%s\t%s\n' "$type" "$path" "$branch" "$session"
+printf '%s\t%s\t%s\t%s\t%s\n' "$type" "$path" "$branch" "$session" "$note"
