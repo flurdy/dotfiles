@@ -1,0 +1,153 @@
+#!/usr/bin/env bash
+# cl-gather: build a launch menu of contexts (main / worktrees / handoffs / new),
+# pick one via fzf, and emit a tab-delimited action descriptor on stdout:
+#     <type>\t<path>\t<branch>\t<session>
+#   type:    main | wt | handoff | new
+#   session: new | continue | resume | fork   (overridable by fzf keys)
+# The caller (the `cl` fish fn) does the cd + claude launch.
+#
+# Modes:  cl-gather           pick via fzf, print descriptor
+#         cl-gather --list    print the candidate rows only (no fzf) — for debugging
+set -uo pipefail
+
+MAIN=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)
+MAIN=${MAIN%/.git}
+[ -z "$MAIN" ] && { echo "cl: not in a git repo" >&2; exit 1; }
+HANDOFF_LIST="$HOME/.claude/skills/handoffs/scripts/list.sh"
+
+LIST_ONLY=0
+[ "${1:-}" = "--list" ] && LIST_ONLY=1
+
+# --- PR data, keyed by branch -----------------------------------------------
+# Cheap fields only: number/headRefName/reviewDecision. statusCheckRollup is a
+# much heavier GraphQL query that 504s on large PR lists — check status lives in
+# /pr-status, not here; the launcher only needs "is there a PR, and its review state".
+# `gh pr list` is ~5s (network), so cache it: serve fresh cache instantly, serve
+# stale cache instantly while refreshing in the background, fetch synchronously
+# only on a cold cache. So you pay the 5s once, then never during active use.
+fetch_pr() {
+  gh pr list --state open --limit 80 --json number,headRefName,reviewDecision \
+    --jq '.[] | [ .headRefName, (.number|tostring),
+          ( if   .reviewDecision == "APPROVED" then "approved"
+            elif .reviewDecision == "CHANGES_REQUESTED" then "changes"
+            elif .reviewDecision == "REVIEW_REQUIRED" then "review"
+            else "" end)
+        ] | @tsv'
+}
+declare -A PR_NUM PR_REV
+if command -v gh >/dev/null 2>&1; then
+  cache_dir="${XDG_CACHE_HOME:-$HOME/.cache}/cl"; mkdir -p "$cache_dir"
+  cache="$cache_dir/pr-$(printf '%s' "$MAIN" | cksum | cut -d' ' -f1).tsv"
+  ttl=90; now=$(date +%s)
+  mtime=0; [ -f "$cache" ] && mtime=$(stat -c %Y "$cache" 2>/dev/null || echo 0)
+  if [ -f "$cache" ] && [ $((now - mtime)) -lt "$ttl" ]; then
+    : # fresh — use as-is
+  elif [ -f "$cache" ]; then
+    # stale: serve it now, refresh for next time. Redirect the bg subshell's
+    # stdout off the captured pipe or the caller blocks waiting for EOF.
+    ( fetch_pr >"$cache.tmp" 2>/dev/null && mv "$cache.tmp" "$cache" ) >/dev/null 2>&1 &
+  else
+    fetch_pr >"$cache" 2>/dev/null || true   # cold start: pay it once
+  fi
+  while IFS=$'\t' read -r br num rev; do
+    [ -z "$br" ] && continue
+    PR_NUM[$br]=$num; PR_REV[$br]=$rev
+  done < "$cache" 2>/dev/null
+fi
+
+# --- handoff slug, keyed by worktree path -----------------------------------
+declare -A HO_SLUG
+declare -a HO_EXTRA_PATH HO_EXTRA_SLUG HO_EXTRA_BRANCH
+if [ -x "$HANDOFF_LIST" ]; then
+  in_section=0
+  while IFS= read -r line; do
+    case "$line" in
+      ---HANDOFFS---) in_section=1; continue ;;
+      ---*---) in_section=0; continue ;;
+    esac
+    [ "$in_section" = 1 ] || continue
+    IFS='|' read -r _file _date slug hpath hbranch _rest <<<"$line"
+    [ -z "$hpath" ] && continue
+    HO_SLUG[$hpath]="$slug"
+    # handoff target that exists on disk but isn't a live worktree of THIS repo
+    if [ -d "$hpath" ] && ! git -C "$MAIN" worktree list --porcelain | grep -qx "worktree $hpath"; then
+      HO_EXTRA_PATH+=("$hpath"); HO_EXTRA_SLUG+=("$slug"); HO_EXTRA_BRANCH+=("$hbranch")
+    fi
+  done < <("$HANDOFF_LIST" 2>/dev/null)
+fi
+
+# --- dirty / ahead markers for a worktree path ------------------------------
+state_markers() {
+  local p="$1" m=""
+  [ -n "$(git -C "$p" status --porcelain 2>/dev/null)" ] && m="dirty"
+  local ahead; ahead=$(git -C "$p" rev-list --count '@{u}..' 2>/dev/null || echo 0)
+  [ "${ahead:-0}" -gt 0 ] 2>/dev/null && m="${m:+$m }unpushed"
+  printf '%s' "$m"
+}
+
+# --- build rows: DISPLAY \t TYPE \t PATH \t BRANCH \t SESSION ----------------
+rows=""
+add_row() { rows+="$1"$'\t'"$2"$'\t'"$3"$'\t'"$4"$'\t'"$5"$'\n'; }
+
+# walk worktrees
+cur_path=""; cur_branch=""
+flush_wt() {
+  [ -z "$cur_path" ] && return
+  local mark; mark=$(state_markers "$cur_path")
+  if [ "$cur_path" = "$MAIN" ]; then
+    local disp="main"; [ -n "$mark" ] && disp+="   $mark"
+    add_row "$disp" main "$MAIN" main new
+  else
+    local disp="$cur_branch"
+    [ -n "${PR_NUM[$cur_branch]:-}" ] && disp+="   PR#${PR_NUM[$cur_branch]} ${PR_REV[$cur_branch]}"
+    [ -n "$mark" ] && disp+="   $mark"
+    [ -n "${HO_SLUG[$cur_path]:-}" ] && disp+="   has handoff"
+    add_row "$disp" wt "$cur_path" "$cur_branch" continue
+  fi
+  cur_path=""; cur_branch=""
+}
+while IFS= read -r l; do
+  case "$l" in
+    "worktree "*) flush_wt; cur_path="${l#worktree }" ;;
+    "branch refs/heads/"*) cur_branch="${l#branch refs/heads/}" ;;
+    "detached") cur_branch="(detached)" ;;
+  esac
+done < <(git -C "$MAIN" worktree list --porcelain)
+flush_wt
+
+# standalone handoff rows (target exists, not a live worktree of this repo)
+for i in "${!HO_EXTRA_PATH[@]}"; do
+  hp="${HO_EXTRA_PATH[$i]/#$HOME/\~}"
+  add_row "handoff: ${HO_EXTRA_SLUG[$i]}   ($hp)" \
+          handoff "${HO_EXTRA_PATH[$i]}" "${HO_EXTRA_BRANCH[$i]}" continue
+done
+
+# new worktree
+add_row "+ new worktree" new "" "" new
+
+if [ "$LIST_ONLY" = 1 ]; then
+  printf '%s' "$rows"
+  exit 0
+fi
+
+# --- pick --------------------------------------------------------------------
+sel=$(printf '%s' "$rows" | fzf \
+        --ansi --delimiter='\t' --with-nth=1 \
+        --height=40% --reverse --no-multi \
+        --prompt='launch ▸ ' \
+        --header='enter=default  ctrl-n=new  ctrl-r=resume-pick  ctrl-f=fork' \
+        --expect=ctrl-n,ctrl-r,ctrl-f)
+[ -z "$sel" ] && exit 1
+
+key=$(printf '%s\n' "$sel" | sed -n '1p')
+line=$(printf '%s\n' "$sel" | sed -n '2p')
+[ -z "$line" ] && exit 1
+
+IFS=$'\t' read -r _disp type path branch session <<<"$line"
+case "$key" in
+  ctrl-n) session=new ;;
+  ctrl-r) session=resume ;;
+  ctrl-f) session=fork ;;
+esac
+
+printf '%s\t%s\t%s\t%s\n' "$type" "$path" "$branch" "$session"

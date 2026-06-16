@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+# cl-mkworktree <branch>: create (or reuse) a worktree for <branch> under the
+# worktrees parent dir, mirror the node_modules symlinks + settings.local.json
+# from the main checkout, and print the worktree path on stdout.
+# Diagnostics go to stderr so the caller can capture the path cleanly.
+set -uo pipefail
+
+branch="${1:-}"
+[ -z "$branch" ] && { echo "cl-mkworktree: branch required" >&2; exit 1; }
+
+MAIN=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)
+MAIN=${MAIN%/.git}
+[ -z "$MAIN" ] && { echo "cl-mkworktree: not in a git repo" >&2; exit 1; }
+
+# worktrees parent: alongside an existing */worktrees/* entry, else a default
+parent=""
+while read -r p; do
+  case "$p" in */worktrees/*) parent="${p%/worktrees/*}/worktrees"; break ;; esac
+done < <(git -C "$MAIN" worktree list --porcelain | awk '/^worktree /{print $2}')
+[ -z "$parent" ] && parent="$(dirname "$MAIN")/claude-blc-2/worktrees"
+mkdir -p "$parent"
+
+slug=$(printf '%s' "$branch" | tr '/' '-' | tr -cs 'A-Za-z0-9._-' '-')
+dest="$parent/$slug"
+
+if git -C "$MAIN" worktree list --porcelain | grep -qx "worktree $dest"; then
+  echo "cl-mkworktree: reusing existing worktree $dest" >&2
+  echo "$dest"; exit 0
+fi
+
+if git -C "$MAIN" show-ref --verify --quiet "refs/heads/$branch"; then
+  git -C "$MAIN" worktree add "$dest" "$branch" >&2
+else
+  git -C "$MAIN" worktree add "$dest" -b "$branch" >&2
+fi
+
+# mirror node_modules symlinks: root + each top-level package
+link_one() {
+  local src="$1" rel="$2"
+  [ -e "$src" ] || return 0
+  [ -e "$dest/$rel" ] && return 0
+  mkdir -p "$(dirname "$dest/$rel")"
+  ln -s "$src" "$dest/$rel"
+}
+link_one "$MAIN/node_modules" "node_modules"
+for d in "$MAIN"/packages/*/; do
+  pkg=$(basename "$d")
+  link_one "$MAIN/packages/$pkg/node_modules" "packages/$pkg/node_modules"
+done
+
+# carry over local settings/permissions so the worktree isn't prompt-spammed
+if [ -f "$MAIN/.claude/settings.local.json" ] && [ ! -e "$dest/.claude/settings.local.json" ]; then
+  mkdir -p "$dest/.claude"
+  cp "$MAIN/.claude/settings.local.json" "$dest/.claude/settings.local.json"
+fi
+
+echo "$dest"
