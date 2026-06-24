@@ -34,12 +34,19 @@ function cl --description 'Claude launcher: pick a context (main/worktree/handof
     set -l note ''
     test (count $parts) -ge 5; and set note $parts[5]
 
-    # new worktree: create it, then launch a fresh session
+    # new worktree. A typed name goes through cl-mkworktree (which also copies the
+    # settings.local.json permission allowlist into the worktree). A blank name falls
+    # back to a bare `claude -w`: Claude creates + randomly names the worktree itself,
+    # and the SessionStart hook symlinks node_modules from main.
+    set -l bare_w 0
     if test "$type" = new
-        read -P 'New worktree branch name: ' branch
-        test -z "$branch"; and return 1
-        set path (command $bin/cl-mkworktree $branch)
-        or return 1
+        read -P 'New worktree branch name (blank = random): ' branch
+        if test -z "$branch"
+            set bare_w 1
+        else
+            set path (command $bin/cl-mkworktree $branch)
+            or return 1
+        end
         set session new
     end
 
@@ -47,6 +54,7 @@ function cl --description 'Claude launcher: pick a context (main/worktree/handof
     set -l cargs
     test $chrome -eq 1; and set cargs $cargs --chrome
     test -n "$model"; and set cargs $cargs --model $model
+    test $bare_w -eq 1; and set cargs $cargs -w
     switch $session
         case continue
             set cargs $cargs --continue
@@ -64,12 +72,19 @@ function cl --description 'Claude launcher: pick a context (main/worktree/handof
     end
 
     if test $dry -eq 1
-        echo "cd $path"
-        test -n "$seed"; and echo "claude $cargs <load $note>"; or echo "claude $cargs"
+        if test $bare_w -eq 1
+            echo "claude $cargs   # from "(pwd)"; claude -w creates the worktree"
+        else
+            echo "cd $path"
+            test -n "$seed"; and echo "claude $cargs <load $note>"; or echo "claude $cargs"
+        end
         return 0
     end
 
-    cd $path; or return 1
+    # bare `claude -w` makes its own worktree, so stay in the current repo dir
+    test $bare_w -eq 0; and begin
+        cd $path; or return 1
+    end
 
     # ensure we're where the handoff expects; warn (don't block) on branch drift
     if test -n "$seed"
