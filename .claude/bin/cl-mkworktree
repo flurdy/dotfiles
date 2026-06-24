@@ -29,9 +29,15 @@ if git -C "$MAIN" worktree list --porcelain | grep -qx "worktree $dest"; then
 fi
 
 if git -C "$MAIN" show-ref --verify --quiet "refs/heads/$branch"; then
+  # existing branch: attach as-is, never reset (preserve its commits)
   git -C "$MAIN" worktree add "$dest" "$branch" >&2
 else
-  git -C "$MAIN" worktree add "$dest" -b "$branch" >&2
+  # new branch: base on a freshly-fetched origin/main, not stale local main;
+  # fall back to local HEAD if origin/main can't be resolved (offline / no remote)
+  git -C "$MAIN" fetch --quiet origin main 2>/dev/null || true
+  base=origin/main
+  git -C "$MAIN" rev-parse --verify --quiet "$base" >/dev/null 2>&1 || base=HEAD
+  git -C "$MAIN" worktree add "$dest" -b "$branch" "$base" >&2
 fi
 
 # mirror node_modules symlinks: root + each top-level package
