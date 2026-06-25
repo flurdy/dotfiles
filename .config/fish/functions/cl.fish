@@ -71,6 +71,22 @@ function cl --description 'Claude launcher: pick a context (main/worktree/handof
         set seed "Resume from the handoff note at $note. Read that file, summarise where we left off and the open threads, then wait for my go-ahead before doing anything."
     end
 
+    # A handoff's pick-up worktree may have been pruned (work finished, or no
+    # changes so it was auto-removed). The note itself lives in the handoffs dir,
+    # not the worktree, so fall back to the main repo dir and still seed it
+    # rather than failing on a dead path.
+    if test "$type" = handoff -a ! -d "$path"
+        set -l main (command git rev-parse --path-format=absolute --git-common-dir 2>/dev/null | string replace -r '/\.git$' '')
+        if test -n "$main" -a -d "$main"
+            echo "cl: ⚠ handoff worktree gone ($path) — resuming in $main" >&2
+            set path $main
+            set branch ''
+        else
+            echo "cl: ⚠ handoff worktree gone: $path" >&2
+            return 1
+        end
+    end
+
     if test $dry -eq 1
         if test $bare_w -eq 1
             echo "claude $cargs   # from "(pwd)"; claude -w creates the worktree"
