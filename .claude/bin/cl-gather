@@ -146,8 +146,8 @@ sel=$(printf '%s' "$rows" | fzf \
         --ansi --delimiter='\t' --with-nth=1 \
         --height=40% --reverse --no-multi \
         --prompt='launch ▸ ' \
-        --header='enter=default  ctrl-n=new  ctrl-r=resume-pick  ctrl-f=fork' \
-        --expect=ctrl-n,ctrl-r,ctrl-f)
+        --header='enter=default  ctrl-n=new  ctrl-r=resume-pick  ctrl-f=fork  ctrl-w=worktree' \
+        --expect=ctrl-n,ctrl-r,ctrl-f,ctrl-w)
 [ -z "$sel" ] && exit 1
 
 key=$(printf '%s\n' "$sel" | sed -n '1p')
@@ -159,6 +159,7 @@ case "$key" in
   ctrl-n) session=new ;;
   ctrl-r) session=resume ;;
   ctrl-f) session=fork ;;
+  ctrl-w) session=worktree ;;
 esac
 
 printf '%s\t%s\t%s\t%s\t%s\n' "$type" "$path" "$branch" "$session" "$note"
