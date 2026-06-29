@@ -67,17 +67,19 @@ function cl --description 'Claude launcher: pick a context (main/worktree/handof
             set default_branch (string replace -r '^\d{4}-\d{2}-\d{2}-' '' (basename $note .md))
         end
         if test -n "$default_branch"
-            read -P "New worktree branch [$default_branch]: " branch
+            read -P "New worktree branch [$default_branch] (blank = random): " branch
             test -z "$branch"; and set branch $default_branch
         else
-            read -P 'New worktree branch: ' branch
+            read -P 'New worktree branch (blank = random): ' branch
         end
+        # blank with no default → bare `claude -w` (random name), mirroring the
+        # "+ new worktree" path rather than erroring out.
         if test -z "$branch"
-            echo 'cl: branch name required' >&2
-            return 1
+            set bare_w 1
+        else
+            set path (command $bin/cl-mkworktree $branch)
+            or return 1
         end
-        set path (command $bin/cl-mkworktree $branch)
-        or return 1
         set session new
     end
 
