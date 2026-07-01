@@ -83,6 +83,37 @@ function cl --description 'Claude launcher: pick a context (main/worktree/handof
         set session new
     end
 
+    # guard: --continue/--resume/--fork need a recorded conversation in $path.
+    # Transcripts live at ~/.claude/projects/<slug>/*.jsonl, where <slug> is the
+    # absolute path with '/' and '.' flattened to '-'. A crashed session can
+    # leave the project dir (even workflow scratch) behind without ever flushing
+    # a transcript, so probe for an actual *.jsonl — not just the dir. bare_w
+    # makes its own worktree and never resumes, so skip it there.
+    if test $bare_w -eq 0
+        switch $session
+            case continue resume fork
+                set -l enc (string replace -a / - -- $path | string replace -a . - -- )
+                set -l proj "$HOME/.claude/projects/$enc"
+                set -l tx ''
+                test -d "$proj"; and set tx (find "$proj" -maxdepth 1 -name '*.jsonl' -print -quit 2>/dev/null)
+                if test -z "$tx"
+                    if test "$session" = continue
+                        # Enter's default for a worktree — degrading to a fresh
+                        # session in the same checkout is the natural fallback.
+                        echo "cl: ⚠ no saved conversation in $path — starting a fresh session" >&2
+                        set session new
+                    else
+                        # ctrl-r/ctrl-f explicitly asked for a past conversation;
+                        # there is none, so don't silently start the wrong thing.
+                        echo "cl: ✗ no saved conversation to $session in $path" >&2
+                        echo "cl:   a crashed session can leave no transcript; your git branch is intact." >&2
+                        echo "cl:   → run cl again and press ctrl-n to start a fresh session here." >&2
+                        return 1
+                    end
+                end
+        end
+    end
+
     # assemble claude args
     set -l cargs
     test $chrome -eq 1; and set cargs $cargs --chrome
