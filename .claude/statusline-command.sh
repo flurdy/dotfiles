@@ -694,7 +694,6 @@ render_table() {
     probe+=("$segment_path" "$segment_repo")
     [ -n "$segment_git" ] && probe+=("$segment_git")
     [ -n "$segment_pr" ] && probe+=("$segment_pr")
-    [ -n "$segment_beads" ] && probe+=("$segment_beads")
     local psum=2 s
     for s in "${probe[@]}"; do psum=$(( psum + $(visible_len "$s") + 2*PAD + 1 )); done
     [ "$psum" -le "$budget" ] && r1_segs+=("$segment_path")
@@ -704,12 +703,13 @@ render_table() {
   fi
   [ -n "$segment_git" ] && r1_segs+=("$segment_git")
   [ -n "$segment_pr" ] && r1_segs+=("$segment_pr")
-  [ -n "$segment_beads" ] && r1_segs+=("$segment_beads")
 
   # Row 2: Claude session info
   local r2_segs=("$segment_model")
   [ -n "$segment_effort" ] && r2_segs+=("$segment_effort")
-  r2_segs+=("$segment_ctx" "$segment_5h" "$segment_7d" "$segment_cost" "$segment_time" "$segment_clock")
+  r2_segs+=("$segment_ctx" "$segment_5h" "$segment_7d")
+  [ -n "$segment_beads" ] && r2_segs+=("$segment_beads")
+  r2_segs+=("$segment_cost" "$segment_time" "$segment_clock")
 
   # Compute widths
   local r1_widths=() r2_widths=()
