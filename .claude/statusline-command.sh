@@ -124,6 +124,109 @@ cache_pr() {
   fi
 }
 
+# --- Non-blocking Beads lookup (cached) ---
+# Prints the last-known counts as "blocked|display" and refreshes stale data in
+# a detached process. Outside a Beads workspace, or when bd/jq/timeout is
+# unavailable, it prints nothing and the table omits the cell.
+find_beads_root() {
+  local directory
+  directory=$(cd "$cwd" 2>/dev/null && pwd -P) || return
+  while true; do
+    [ -d "$directory/.beads" ] && { printf '%s' "$directory"; return; }
+    [ "$directory" = "/" ] && return
+    directory=${directory%/*}
+    [ -z "$directory" ] && directory="/"
+  done
+}
+
+cache_beads() {
+  [ "${CLAUDE_STATUSLINE_BEADS:-1}" = "0" ] && return
+  command -v bd >/dev/null 2>&1 || return
+  command -v jq >/dev/null 2>&1 || return
+
+  local timeout_cmd
+  timeout_cmd=$(command -v gtimeout 2>/dev/null || command -v timeout 2>/dev/null) || return
+
+  local root
+  root=$(find_beads_root)
+  [ -z "$root" ] && return
+
+  local ttl="${CLAUDE_STATUSLINE_BEADS_TTL:-30}"
+  local timeout_seconds="${CLAUDE_STATUSLINE_BEADS_TIMEOUT:-2}"
+  case "$ttl" in ''|*[!0-9]*) ttl=30 ;; esac
+  case "$timeout_seconds" in ''|*[!0-9]*) timeout_seconds=2 ;; esac
+  [ "$ttl" -lt 5 ] && ttl=5
+  [ "$timeout_seconds" -lt 1 ] && timeout_seconds=1
+  [ "$timeout_seconds" -gt 10 ] && timeout_seconds=10
+
+  local key cache lock now age
+  key=$(printf '%s' "$root" | cksum | tr -cd '0-9' | cut -c1-12)
+  cache="/tmp/statusline-beads-$key"
+  lock="$cache.lock"
+  now=$(date +%s)
+
+  [ -f "$cache" ] && cat "$cache"
+
+  age=$ttl
+  [ -f "$cache" ] && age=$(( now - $(stat -c %Y "$cache" 2>/dev/null || stat -f %m "$cache" 2>/dev/null || echo 0) ))
+  if [ "$age" -ge "$ttl" ]; then
+    ( umask 077
+      local issues blocked payload tmp="$cache.tmp.$BASHPID" lock_dir=""
+      if command -v flock >/dev/null 2>&1; then
+        exec 9>"$lock"
+        flock -n 9 || exit 0
+      else
+        lock_dir="$lock.d"
+        mkdir "$lock_dir" 2>/dev/null || exit 0
+      fi
+      trap 'rm -f "$tmp"; [ -z "$lock_dir" ] || rm -rf "$lock_dir"' EXIT
+
+      local refresh_now refresh_age
+      refresh_now=$(date +%s)
+      refresh_age=$ttl
+      [ -f "$cache" ] && refresh_age=$(( refresh_now - $(stat -c %Y "$cache" 2>/dev/null || stat -f %m "$cache" 2>/dev/null || echo 0) ))
+      if [ "$refresh_age" -ge "$ttl" ]; then
+        if issues=$(cd "$root" && "$timeout_cmd" --kill-after=1 "$timeout_seconds" bd list --json --limit 0 --readonly 2>/dev/null) &&
+           blocked=$(cd "$root" && "$timeout_cmd" --kill-after=1 "$timeout_seconds" bd blocked --json --readonly 2>/dev/null) &&
+           payload=$(jq -nr --argjson issues "$issues" --argjson blocked "$blocked" '
+             def valid:
+               ($issues | type == "array") and
+               ($blocked | type == "array") and
+               all($issues[];
+                 (type == "object") and
+                 (.status | type == "string") and
+                 (if .status == "open" then
+                    (.priority | type == "number") and
+                    (.priority == (.priority | floor)) and
+                    (.priority >= 0 and .priority <= 4)
+                  else true end));
+             if valid then
+               [$issues[] | select(.status == "open") | .priority] as $priorities |
+               ([$issues[] | select(.status == "in_progress")] | length) as $active |
+               ($blocked | length) as $blocked_count |
+               ([range(0; 5) as $priority |
+                 ($priorities | map(select(. == $priority)) | length) as $count |
+                 select($count > 0) |
+                 "P\($priority):\($count)"]) as $priority_parts |
+               "\($blocked_count)|" +
+               (["◉"] +
+                (if ($priority_parts | length) > 0 then $priority_parts else ["0"] end) +
+                ["◐\($active)"] +
+                (if $blocked_count > 0 then ["⛔\($blocked_count)"] else [] end) |
+                join(" "))
+             else error("invalid bd response") end
+           ' 2>/dev/null); then
+          printf '%s\n' "$payload" > "$tmp"
+        else
+          : > "$tmp"
+        fi
+        mv -f "$tmp" "$cache" 2>/dev/null
+      fi
+    ) </dev/null >/dev/null 2>&1 &
+    disown 2>/dev/null
+  fi
+}
+
 # --- Colors ---
 RST='\033[0m'
 BOLD='\033[1m'
@@ -562,6 +665,17 @@ render_table() {
 
   local PAD=1
 
+  # Explicit compact mode never enters this table-only lookup path.
+  local segment_beads="" beads_blocked="" beads_text=""
+  IFS='|' read -r beads_blocked beads_text <<< "$(cache_beads)"
+  if [[ "$beads_blocked" =~ ^[0-9]+$ ]] && [ -n "$beads_text" ]; then
+    if [ "$beads_blocked" -gt 0 ]; then
+      segment_beads="${C_BAR_WARN}${beads_text}${RST}"
+    else
+      segment_beads="${C_MODEL}${beads_text}${RST}"
+    fi
+  fi
+
   # Width budget (shared by the path-guard and the fall-back-to-compact check).
   # The margin guards against terminals that clip the final column and against
   # $COLUMNS lagging a resize.
@@ -580,6 +694,7 @@ render_table() {
     probe+=("$segment_path" "$segment_repo")
     [ -n "$segment_git" ] && probe+=("$segment_git")
     [ -n "$segment_pr" ] && probe+=("$segment_pr")
+    [ -n "$segment_beads" ] && probe+=("$segment_beads")
     local psum=2 s
     for s in "${probe[@]}"; do psum=$(( psum + $(visible_len "$s") + 2*PAD + 1 )); done
     [ "$psum" -le "$budget" ] && r1_segs+=("$segment_path")
@@ -589,6 +704,7 @@ render_table() {
   fi
   [ -n "$segment_git" ] && r1_segs+=("$segment_git")
   [ -n "$segment_pr" ] && r1_segs+=("$segment_pr")
+  [ -n "$segment_beads" ] && r1_segs+=("$segment_beads")
 
   # Row 2: Claude session info
   local r2_segs=("$segment_model")
