@@ -259,11 +259,15 @@ SEP="${C_SEP} │ ${RST}"
 # --- Helper: short model name ---
 short_model() {
   case "$1" in
+    *fable*5*|*fable-5*)     echo "Fable 5" ;;
+    *opus*4*8*|*opus-4-8*)   echo "Opus 4.8" ;;
+    *opus*4*7*|*opus-4-7*)   echo "Opus 4.7" ;;
     *opus*4*6*|*opus-4-6*)   echo "Opus 4.6" ;;
     *opus*4*5*|*opus-4-5*)   echo "Opus 4.5" ;;
     *sonnet*4*6*|*sonnet-4-6*) echo "Sonnet 4.6" ;;
     *sonnet*4*5*|*sonnet-4-5*) echo "Sonnet 4.5" ;;
     *haiku*4*5*|*haiku-4-5*) echo "Haiku 4.5" ;;
+    *fable*)  echo "Fable" ;;
     *opus*)   echo "Opus" ;;
     *sonnet*) echo "Sonnet" ;;
     *haiku*)  echo "Haiku" ;;
@@ -506,6 +510,7 @@ render_compact() {
   # Shorter model name
   local m1
   case "$model_id" in
+    *fable*)  m1="Fable" ;;
     *opus*)   m1="Opus" ;;
     *sonnet*) m1="Sonnet" ;;
     *haiku*)  m1="Haiku" ;;
