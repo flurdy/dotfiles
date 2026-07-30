@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+project="${SECRET_API_KEY_PROJECT:-flurdy}"
+
+doctl_bin="$(command -v doctl || true)"
+if [[ -z $doctl_bin ]]; then
+	echo 'doctl is not installed' >&2
+	exit 127
+fi
+
+if ! token="$(secret-api-key lookup digitalocean "$project")" || [[ -z $token ]]; then
+	echo "DigitalOcean API key unavailable for project $project" >&2
+	exit 1
+fi
+
+export DIGITALOCEAN_ACCESS_TOKEN="$token"
+unset token
+
+exec "$doctl_bin" "$@"
