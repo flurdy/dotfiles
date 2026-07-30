@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# Injects NPM_TOKEN from the keyring only for npm itself, so GitHub Packages
+# auth works without exporting the token into every shell and child process.
+set -euo pipefail
+
+self="$(readlink -f "${BASH_SOURCE[0]}")"
+
+find_real_npm() {
+	local dirs dir candidate
+	IFS=: read -ra dirs <<<"$PATH"
+	for dir in "${dirs[@]}"; do
+		[[ -n $dir ]] || continue
+		candidate="$dir/npm"
+		[[ -x $candidate ]] || continue
+		[[ "$(readlink -f "$candidate")" != "$self" ]] || continue
+		printf '%s\n' "$candidate"
+		return 0
+	done
+	return 1
+}
+
+npmrc_needs_token() {
+	local file
+	for file in .npmrc "$HOME/.npmrc"; do
+		if [[ -f $file ]] && grep -q 'NPM_TOKEN' "$file"; then
+			return 0
+		fi
+	done
+	return 1
+}
+
+if ! real_npm="$(find_real_npm)"; then
+	echo 'npm is not installed' >&2
+	exit 127
+fi
+
+if [[ -z ${NPM_TOKEN:-} ]] && npmrc_needs_token; then
+	project="${NPM_TOKEN_PROJECT:-${SECRET_API_KEY_PROJECT:-flurdy}}"
+	if token="$(timeout 5s secret-api-key lookup github "$project" 2>/dev/null)" && [[ -n $token ]]; then
+		export NPM_TOKEN="$token"
+		unset token
+	else
+		echo "warning: npm registry token unavailable for project $project" >&2
+	fi
+fi
+
+exec "$real_npm" "$@"
