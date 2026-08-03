@@ -23,6 +23,21 @@ function cl --description 'Claude launcher: pick a context (main/worktree/handof
         end
     end
 
+    # not a repo (e.g. a workspace dir of symlinked repos): there is no repo to
+    # build the worktree/handoff menu from — just launch claude here instead.
+    if not command git rev-parse --git-dir >/dev/null 2>&1
+        echo "cl: not a git repo — launching claude here" >&2
+        set -l cargs
+        test $chrome -eq 1; and set cargs $cargs --chrome
+        test -n "$model"; and set cargs $cargs --model $model
+        if test $dry -eq 1
+            echo "claude $cargs   # from "(pwd)
+            return 0
+        end
+        command claude $cargs
+        return
+    end
+
     set -l desc (command $bin/cl-gather)
     or return 1
     set -l parts (string split \t -- $desc[1])
@@ -33,6 +48,15 @@ function cl --description 'Claude launcher: pick a context (main/worktree/handof
     set -l session $parts[4]
     set -l note ''
     test (count $parts) -ge 5; and set note $parts[5]
+    set -l root ''
+    test (count $parts) -ge 6; and set root $parts[6]
+
+    # A handoff owned by a member of this multi-repo workspace: move into the
+    # owning repo up front, so the worktree lookup, cl-mkworktree, and the
+    # pruned-worktree fallback all act on that repo and not the workspace root.
+    if test -n "$root" -a -d "$root"
+        cd $root; or return 1
+    end
 
     # new worktree. A typed name goes through cl-mkworktree (which also copies the
     # settings.local.json permission allowlist into the worktree). A blank name falls
