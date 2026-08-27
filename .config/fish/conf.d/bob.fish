@@ -1,4 +1,4 @@
-set -g theme_display_k8s_context yes
+set -g theme_display_k8s_context no
 set -g theme_display_hostname yes
 set -g theme_display_user no
 set -g theme_display_git_untracked yes
