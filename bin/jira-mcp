@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Atlassian Jira MCP server. Site, user and keyring project come from a private env file;
+# the API token comes from the keyring, never from config or dotfiles.
+set -euo pipefail
+
+env_file="${JIRA_MCP_ENV:-$HOME/.dotprivate/jira-mcp.env}"
+[[ -r $env_file ]] && . "$env_file"
+
+: "${ATLASSIAN_SITE_NAME:?set in $env_file}"
+: "${ATLASSIAN_USER_EMAIL:?set in $env_file}"
+: "${JIRA_MCP_KEYRING_PROJECT:?set in $env_file}"
+export ATLASSIAN_SITE_NAME ATLASSIAN_USER_EMAIL
+ATLASSIAN_API_TOKEN="$(secret-api-key lookup atlassian-api-token "$JIRA_MCP_KEYRING_PROJECT")"
+export ATLASSIAN_API_TOKEN
+
+exec npx -y @aashari/mcp-server-atlassian-jira "$@"
