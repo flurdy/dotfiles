@@ -17,6 +17,7 @@
 
 # set -U fish_user_paths /snap/bin (string match -v /snap/bin $fish_user_paths)
 contains $HOME/.dotfiles/.config/fish/functions $fish_function_path; or set -g fish_function_path $HOME/.dotfiles/.config/fish/functions $fish_function_path
+source $HOME/.dotfiles/.config/fish/functions/update_kitty_tab_title.fish
 
 contains $HOME/.dotfiles/bin $fish_user_paths; or fish_add_path $HOME/.dotfiles/bin 
 
@@ -89,12 +90,16 @@ set -xg EDITOR /usr/bin/vim
 
 alias get "git"
 alias gut "git"
-alias ll "exa -l -a -g --icons"
+alias ll "eza -l -a -g --icons"
 alias ga "git add -p"
 alias ghist "git history"
 #alias kube "kbubectl"
 alias hs "history | grep "
 alias trash "gio trash"
+alias g "git"
+alias m "make"
+
+set -xg DIRENV_LOG_FORMAT ""
 
 if type -q direnv
     direnv hook fish | source
@@ -103,3 +108,5 @@ end
 #if type -q starship
 #   starship init fish | source
 #end
+set -gx GPG_TTY (tty)
+
