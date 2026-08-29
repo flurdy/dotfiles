@@ -1,0 +1,110 @@
+#!/usr/bin/env bash
+# mkworktree <branch>: create (or reuse) a worktree for <branch>, mirror useful
+# local project files from the main checkout, and print the worktree path.
+# Diagnostics go to stderr so callers can capture the path cleanly.
+set -uo pipefail
+
+prog=$(basename "$0")
+branch="${1:-}"
+[ -z "$branch" ] && { echo "$prog: branch required" >&2; exit 1; }
+[ "$#" -eq 1 ] || { echo "Usage: $prog <branch>" >&2; exit 2; }
+
+MAIN=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)
+MAIN=${MAIN%/.git}
+[ -z "$MAIN" ] && { echo "$prog: not in a git repo" >&2; exit 1; }
+
+# Find this branch wherever it is already checked out, and remember an existing
+# */worktrees/* layout. Parse complete porcelain lines so paths containing spaces
+# are not truncated.
+parent=""
+existing=""
+current=""
+while IFS= read -r line; do
+  case "$line" in
+    "worktree "*)
+      current="${line#worktree }"
+      case "$current" in
+        */worktrees/*) [ -n "$parent" ] || parent="${current%/worktrees/*}/worktrees" ;;
+      esac
+      ;;
+    "branch refs/heads/$branch") existing="$current" ;;
+  esac
+done < <(git -C "$MAIN" worktree list --porcelain)
+
+reuse=0
+if [ -n "$existing" ]; then
+  [ -d "$existing" ] || {
+    echo "$prog: branch '$branch' belongs to missing worktree $existing; run git worktree prune" >&2
+    exit 1
+  }
+  dest="$existing"
+  reuse=1
+  echo "$prog: reusing existing worktree $dest" >&2
+else
+  # Otherwise use the established layout, AI_WORKTREE_PARENT when set, or a
+  # generic sibling worktrees directory.
+  [ -n "$parent" ] || parent="${AI_WORKTREE_PARENT:-$(dirname "$MAIN")/worktrees}"
+  mkdir -p "$parent"
+  slug=$(printf '%s' "$branch" | tr '/' '-' | tr -cs 'A-Za-z0-9._-' '-')
+  dest="$parent/$slug"
+
+  # Different branch names can collapse to the same filesystem-safe slug. Never
+  # silently reuse a destination registered to another worktree.
+  while IFS= read -r line; do
+    if [ "$line" = "worktree $dest" ]; then
+      echo "$prog: destination collision for branch '$branch': $dest is another worktree" >&2
+      exit 1
+    fi
+  done < <(git -C "$MAIN" worktree list --porcelain)
+fi
+
+if [ "$reuse" = 0 ]; then
+  if git -C "$MAIN" show-ref --verify --quiet "refs/heads/$branch"; then
+    # Existing branch: attach as-is, never reset it or discard commits.
+    if ! git -C "$MAIN" worktree add "$dest" "$branch" >&2; then
+      echo "$prog: failed to create worktree for branch '$branch'" >&2
+      exit 1
+    fi
+  else
+    # New branch: base on freshly fetched origin/main, falling back to local HEAD
+    # when origin/main is unavailable (for example, offline or no remote).
+    git -C "$MAIN" fetch --quiet origin main 2>/dev/null || true
+    base=origin/main
+    git -C "$MAIN" rev-parse --verify --quiet "$base" >/dev/null 2>&1 || base=HEAD
+    if ! git -C "$MAIN" worktree add "$dest" -b "$branch" "$base" >&2; then
+      echo "$prog: failed to create worktree for new branch '$branch'" >&2
+      exit 1
+    fi
+  fi
+fi
+
+# Mirror node_modules symlinks: root and each top-level package.
+link_one() {
+  local src="$1" rel="$2"
+  [ -e "$src" ] || return 0
+  if [ -e "$dest/$rel" ] || [ -L "$dest/$rel" ]; then
+    return 0
+  fi
+  mkdir -p "$(dirname "$dest/$rel")"
+  ln -s "$src" "$dest/$rel"
+}
+link_one "$MAIN/node_modules" "node_modules"
+for dir in "$MAIN"/packages/*/; do
+  package=$(basename "$dir")
+  link_one "$MAIN/packages/$package/node_modules" "packages/$package/node_modules"
+done
+
+# A worktree may be opened by either launcher, so carry both agents' untracked
+# project settings when they exist. Never overwrite settings already present.
+for rel in \
+  .claude/settings.local.json \
+  .pi/settings.json \
+  .pi/settings.local.json
+do
+  if [ -f "$MAIN/$rel" ] && [ ! -e "$dest/$rel" ] && [ ! -L "$dest/$rel" ]; then
+    mkdir -p "$(dirname "$dest/$rel")"
+    cp "$MAIN/$rel" "$dest/$rel"
+  fi
+done
+
+echo "$dest"

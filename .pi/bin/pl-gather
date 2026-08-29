@@ -1,0 +1,236 @@
+#!/usr/bin/env bash
+# context-gather: build a launch menu of contexts (main / worktrees / handoffs /
+# new), pick one via fzf, and emit a tab-delimited action descriptor:
+#     <type>\t<path>\t<branch>\t<session>\t<note>
+#   type:    main | wt | handoff | new
+#   session: new | continue | resume | handoff | worktree | fork
+#
+# The invoking name selects the agent when installed as cl-gather or pl-gather.
+# Direct calls must pass --agent=claude or --agent=pi.
+set -uo pipefail
+
+prog=$(basename "$0")
+agent=""
+case "$prog" in
+  cl-gather) agent="claude" ;;
+  pl-gather) agent="pi" ;;
+esac
+
+LIST_ONLY=0
+usage() {
+  cat <<EOF
+Usage: $prog [--agent=claude|pi] [--list]
+
+Build and optionally pick from the main/worktree/handoff/new launch contexts.
+EOF
+}
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --agent=*) agent="${1#--agent=}" ;;
+    --agent)
+      shift
+      agent="${1:-}"
+      [ -n "$agent" ] || { echo "$prog: --agent requires a value" >&2; exit 2; }
+      ;;
+    --list) LIST_ONLY=1 ;;
+    --help|-h) usage; exit 0 ;;
+    *) echo "$prog: unknown option: $1" >&2; usage >&2; exit 2 ;;
+  esac
+  shift
+done
+
+case "$agent" in
+  claude) label="cl"; supports_fork=1 ;;
+  pi) label="pl"; supports_fork=0 ;;
+  "") echo "$prog: agent not specified (use --agent=claude or --agent=pi)" >&2; exit 2 ;;
+  *) echo "$prog: unsupported agent: $agent" >&2; exit 2 ;;
+esac
+
+MAIN=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)
+MAIN=${MAIN%/.git}
+[ -z "$MAIN" ] && { echo "$label: not in a git repo" >&2; exit 1; }
+HANDOFF_LIST="${AI_HANDOFF_LIST:-$HOME/.claude/skills/handoffs/scripts/list.sh}"
+
+# --- PR data, keyed by branch -----------------------------------------------
+# Cheap fields only: number/headRefName/reviewDecision. statusCheckRollup is a
+# much heavier GraphQL query that 504s on large PR lists — check status lives in
+# /pr-status, not here; the launcher only needs "is there a PR, and its review state".
+# `gh pr list` is ~5s (network), so cache it: serve fresh cache instantly, serve
+# stale cache instantly while refreshing in the background, fetch synchronously
+# only on a cold cache. Claude and Pi share the same cache because the data is
+# repository context rather than agent state.
+fetch_pr() {
+  gh pr list --state open --limit 80 --json number,headRefName,reviewDecision \
+    --jq '.[] | [ .headRefName, (.number|tostring),
+          ( if   .reviewDecision == "APPROVED" then "approved"
+            elif .reviewDecision == "CHANGES_REQUESTED" then "changes"
+            elif .reviewDecision == "REVIEW_REQUIRED" then "review"
+            else "" end)
+        ] | @tsv'
+}
+declare -A PR_NUM PR_REV
+if command -v gh >/dev/null 2>&1; then
+  cache_dir="${XDG_CACHE_HOME:-$HOME/.cache}/ai-launcher"; mkdir -p "$cache_dir"
+  cache="$cache_dir/pr-$(printf '%s' "$MAIN" | cksum | cut -d' ' -f1).tsv"
+  refresh_pr_cache() {
+    local tmp="$cache.tmp.$$"
+    if fetch_pr >"$tmp" 2>/dev/null; then
+      mv "$tmp" "$cache"
+    else
+      rm -f "$tmp"
+      return 1
+    fi
+  }
+  ttl=90; now=$(date +%s)
+  mtime=0
+  if [ -f "$cache" ]; then
+    mtime=$(stat -c %Y "$cache" 2>/dev/null || stat -f %m "$cache" 2>/dev/null || echo 0)
+  fi
+  if [ -f "$cache" ] && [ $((now - mtime)) -lt "$ttl" ]; then
+    : # fresh — use as-is
+  elif [ -f "$cache" ]; then
+    # Stale: serve it now and atomically refresh for next time. Redirect the
+    # background subshell's stdout or the caller blocks waiting for pipe EOF.
+    ( refresh_pr_cache ) >/dev/null 2>&1 &
+  else
+    refresh_pr_cache || true # cold start: pay it once
+  fi
+  # A failed cold-cache refresh leaves no file to read. Test before redirecting:
+  # redirect failures occur before `2>/dev/null` takes effect for the loop.
+  if [ -r "$cache" ]; then
+    while IFS=$'\t' read -r br num rev; do
+      [ -z "$br" ] && continue
+      PR_NUM[$br]=$num; PR_REV[$br]=$rev
+    done < "$cache"
+  fi
+fi
+
+# --- handoffs owned by THIS repo --------------------------------------------
+# list.sh tags every handoff with its owning repo remote and tells us the
+# current repo (---CURRENT-REPO---). Surface only this repo's handoffs, each as
+# its own row, so sibling-repo handoffs do not leak into this picker.
+CURRENT_REPO=""
+HANDOFFS_DIR_LS="$HOME/.claude/handoffs"
+declare -a HO_FILE HO_SLUG HO_PATH HO_BRANCH HO_DATE HO_TIME HO_SORT_KEY
+if [ -x "$HANDOFF_LIST" ]; then
+  section=""
+  while IFS= read -r line; do
+    case "$line" in ---*---) section="$line"; continue ;; esac
+    case "$section" in
+      ---CURRENT-REPO---) [ -z "$CURRENT_REPO" ] && CURRENT_REPO="$line" ;;
+      ---HANDOFFS-DIR---) [ -n "$line" ] && HANDOFFS_DIR_LS="$line" ;;
+      ---HANDOFFS---)
+        # Field 15 is the HH:MM handoff time. Keep the trailing fields opaque:
+        # list.sh has a wider, evolving record format, while the launcher only
+        # needs the identity, pickup location, and timestamp.
+        IFS='|' read -r hfile hdate hslug hpath hbranch hrepo _exists _supby \
+          _supreason _state _prstate _prnum _prurl _archclass htime _rest <<<"$line"
+        [ -z "$hfile" ] && continue
+        [ -n "$CURRENT_REPO" ] && [ "$hrepo" != "$CURRENT_REPO" ] && continue
+        [ "$htime" = "?" ] || [[ "$htime" =~ ^[0-2][0-9]:[0-5][0-9]$ ]] || htime="?"
+        HO_FILE+=("$hfile"); HO_SLUG+=("$hslug"); HO_PATH+=("$hpath")
+        HO_BRANCH+=("$hbranch"); HO_DATE+=("$hdate"); HO_TIME+=("$htime")
+        # Unknown times fall back to midnight, so known same-day entries sort
+        # first while the date still orders legacy handoffs correctly.
+        HO_SORT_KEY+=("$hdate ${htime/\?/00:00}")
+        ;;
+    esac
+  done < <("$HANDOFF_LIST" 2>/dev/null)
+fi
+
+# --- dirty / ahead markers for a worktree path ------------------------------
+state_markers() {
+  local p="$1" m=""
+  [ -n "$(git -C "$p" status --porcelain 2>/dev/null)" ] && m="dirty"
+  local ahead; ahead=$(git -C "$p" rev-list --count '@{u}..' 2>/dev/null || echo 0)
+  [ "${ahead:-0}" -gt 0 ] 2>/dev/null && m="${m:+$m }unpushed"
+  printf '%s' "$m"
+}
+
+# --- build rows: DISPLAY \t TYPE \t PATH \t BRANCH \t SESSION \t NOTE ---------
+rows=""
+add_row() { rows+="$1"$'\t'"$2"$'\t'"$3"$'\t'"$4"$'\t'"$5"$'\t'"${6:-}"$'\n'; }
+
+cur_path=""; cur_branch=""
+flush_wt() {
+  [ -z "$cur_path" ] && return
+  local mark; mark=$(state_markers "$cur_path")
+  if [ "$cur_path" = "$MAIN" ]; then
+    local disp="main"; [ -n "$mark" ] && disp+="   $mark"
+    add_row "$disp" main "$MAIN" main new
+  else
+    local disp="$cur_branch"
+    [ -n "${PR_NUM[$cur_branch]:-}" ] && disp+="   PR#${PR_NUM[$cur_branch]} ${PR_REV[$cur_branch]}"
+    [ -n "$mark" ] && disp+="   $mark"
+    add_row "$disp" wt "$cur_path" "$cur_branch" continue
+  fi
+  cur_path=""; cur_branch=""
+}
+while IFS= read -r line; do
+  case "$line" in
+    "worktree "*) flush_wt; cur_path="${line#worktree }" ;;
+    "branch refs/heads/"*) cur_branch="${line#branch refs/heads/}" ;;
+    "detached") cur_branch="(detached)" ;;
+  esac
+done < <(git -C "$MAIN" worktree list --porcelain)
+flush_wt
+
+# A handoff is a markdown note rather than a recorded agent conversation. The
+# caller starts a fresh session in the pick-up directory and loads the note.
+# list.sh's filename ordering cannot distinguish same-day handoffs, so sort by
+# its header/mtime-derived timestamp here rather than trusting input order.
+HO_ORDER=("${!HO_FILE[@]}")
+for ((i = 1; i < ${#HO_ORDER[@]}; i++)); do
+  candidate=${HO_ORDER[$i]}
+  j=$((i - 1))
+  while ((j >= 0)) && [[ "${HO_SORT_KEY[${HO_ORDER[$j]}]}" < "${HO_SORT_KEY[$candidate]}" ]]; do
+    HO_ORDER[$((j + 1))]=${HO_ORDER[$j]}
+    j=$((j - 1))
+  done
+  HO_ORDER[$((j + 1))]=$candidate
+done
+for i in "${HO_ORDER[@]}"; do
+  hp="${HO_PATH[$i]/#$HOME/\~}"
+  timestamp="${HO_DATE[$i]}"
+  [ "${HO_TIME[$i]}" = "?" ] || timestamp+=" ${HO_TIME[$i]}"
+  add_row "handoff: ${HO_SLUG[$i]}   ($timestamp · $hp)" \
+          handoff "${HO_PATH[$i]}" "${HO_BRANCH[$i]}" handoff \
+          "$HANDOFFS_DIR_LS/${HO_FILE[$i]}"
+done
+
+add_row "+ new worktree" new "" "" new
+
+if [ "$LIST_ONLY" = 1 ]; then
+  printf '%s' "$rows"
+  exit 0
+fi
+
+# --- pick --------------------------------------------------------------------
+if [ "$supports_fork" = 1 ]; then
+  header='enter=default  ctrl-n=new  ctrl-r=resume-pick  ctrl-f=fork  ctrl-w=worktree'
+  expect='ctrl-n,ctrl-r,ctrl-f,ctrl-w'
+else
+  header='enter=default  ctrl-n=new  ctrl-r=resume-pick  ctrl-w=worktree'
+  expect='ctrl-n,ctrl-r,ctrl-w'
+fi
+sel=$(printf '%s' "$rows" | fzf \
+        --ansi --delimiter='\t' --with-nth=1 \
+        --height=40% --reverse --no-multi \
+        --prompt='launch ▸ ' \
+        --header="$header" \
+        --expect="$expect")
+[ -z "$sel" ] && exit 1
+
+key=$(printf '%s\n' "$sel" | sed -n '1p')
+line=$(printf '%s\n' "$sel" | sed -n '2p')
+[ -z "$line" ] && exit 1
+
+IFS=$'\t' read -r _disp type path branch session note <<<"$line"
+case "$key" in
+  ctrl-n) session=new ;;
+  ctrl-r) session=resume ;;
+  ctrl-f) [ "$supports_fork" = 1 ] && session=fork ;;
+  ctrl-w) session=worktree ;;
+esac
+
+printf '%s\t%s\t%s\t%s\t%s\n' "$type" "$path" "$branch" "$session" "$note"
