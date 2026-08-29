@@ -42,15 +42,14 @@ while [ "$#" -gt 0 ]; do
 done
 
 case "$agent" in
-  claude) label="cl"; supports_fork=1 ;;
-  pi) label="pl"; supports_fork=0 ;;
+  claude) supports_fork=1 ;;
+  pi) supports_fork=0 ;;
   "") echo "$prog: agent not specified (use --agent=claude or --agent=pi)" >&2; exit 2 ;;
   *) echo "$prog: unsupported agent: $agent" >&2; exit 2 ;;
 esac
 
 MAIN=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)
 MAIN=${MAIN%/.git}
-[ -z "$MAIN" ] && { echo "$label: not in a git repo" >&2; exit 1; }
 HANDOFF_LIST="${AI_HANDOFF_LIST:-$HOME/.claude/skills/handoffs/scripts/list.sh}"
 
 # --- PR data, keyed by branch -----------------------------------------------
@@ -71,7 +70,7 @@ fetch_pr() {
         ] | @tsv'
 }
 declare -A PR_NUM PR_REV
-if command -v gh >/dev/null 2>&1; then
+if [ -n "$MAIN" ] && command -v gh >/dev/null 2>&1; then
   cache_dir="${XDG_CACHE_HOME:-$HOME/.cache}/ai-launcher"; mkdir -p "$cache_dir"
   cache="$cache_dir/pr-$(printf '%s' "$MAIN" | cksum | cut -d' ' -f1).tsv"
   refresh_pr_cache() {
@@ -125,6 +124,7 @@ fi
 # newer row is in this list too. Offering the dead one is offering stale context.
 CURRENT_REPO=""
 HANDOFFS_DIR_LS="$HOME/.claude/handoffs"
+handoff_count=0
 declare -a HO_FILE HO_SLUG HO_PATH HO_BRANCH HO_DATE HO_TIME HO_SORT_KEY HO_ROOT
 if [ -x "$HANDOFF_LIST" ]; then
   section=""
@@ -140,6 +140,7 @@ if [ -x "$HANDOFF_LIST" ]; then
         IFS='|' read -r hfile hdate hslug hpath hbranch hrepo _exists hsupby \
           _supreason _state _prstate _prnum _prurl _archclass htime _rest <<<"$line"
         [ -z "$hfile" ] && continue
+        [ "$hbranch" = "?" ] && hbranch=""
         [ -n "$hsupby" ] && continue
         hroot=""
         if [ "$section" = "---WORKSPACE-MEMBER-HANDOFFS---" ]; then
@@ -154,6 +155,7 @@ if [ -x "$HANDOFF_LIST" ]; then
         HO_FILE+=("$hfile"); HO_SLUG+=("$hslug"); HO_PATH+=("$hpath")
         HO_BRANCH+=("$hbranch"); HO_DATE+=("$hdate"); HO_TIME+=("$htime")
         HO_ROOT+=("$hroot")
+        handoff_count=$((handoff_count + 1))
         # Unknown times fall back to midnight, so known same-day entries sort
         # first while the date still orders legacy handoffs correctly.
         HO_SORT_KEY+=("$hdate ${htime/\?/00:00}")
@@ -190,14 +192,16 @@ flush_wt() {
   fi
   cur_path=""; cur_branch=""
 }
-while IFS= read -r line; do
-  case "$line" in
-    "worktree "*) flush_wt; cur_path="${line#worktree }" ;;
-    "branch refs/heads/"*) cur_branch="${line#branch refs/heads/}" ;;
-    "detached") cur_branch="(detached)" ;;
-  esac
-done < <(git -C "$MAIN" worktree list --porcelain)
-flush_wt
+if [ -n "$MAIN" ]; then
+  while IFS= read -r line; do
+    case "$line" in
+      "worktree "*) flush_wt; cur_path="${line#worktree }" ;;
+      "branch refs/heads/"*) cur_branch="${line#branch refs/heads/}" ;;
+      "detached") cur_branch="(detached)" ;;
+    esac
+  done < <(git -C "$MAIN" worktree list --porcelain)
+  flush_wt
+fi
 
 # A handoff is a markdown note rather than a recorded agent conversation. The
 # caller starts a fresh session in the pick-up directory and loads the note.
@@ -208,10 +212,10 @@ for ((i = 1; i < ${#HO_ORDER[@]}; i++)); do
   candidate=${HO_ORDER[$i]}
   j=$((i - 1))
   while ((j >= 0)) && [[ "${HO_SORT_KEY[${HO_ORDER[$j]}]}" < "${HO_SORT_KEY[$candidate]}" ]]; do
-    HO_ORDER[$((j + 1))]=${HO_ORDER[$j]}
+    HO_ORDER[j + 1]=${HO_ORDER[$j]}
     j=$((j - 1))
   done
-  HO_ORDER[$((j + 1))]=$candidate
+  HO_ORDER[j + 1]=$candidate
 done
 for i in "${HO_ORDER[@]}"; do
   hp="${HO_PATH[$i]/#$HOME/\~}"
@@ -222,7 +226,13 @@ for i in "${HO_ORDER[@]}"; do
           "$HANDOFFS_DIR_LS/${HO_FILE[$i]}" "${HO_ROOT[$i]}"
 done
 
-add_row "+ new worktree" new "" "" new
+if [ -n "$MAIN" ]; then
+  add_row "+ new worktree" new "" "" new
+elif [ "$handoff_count" -gt 0 ]; then
+  add_row "+ new session here" main "$(pwd -P)" "" new
+else
+  exit 1
+fi
 
 if [ "$LIST_ONLY" = 1 ]; then
   printf '%s' "$rows"
@@ -249,7 +259,13 @@ key=$(printf '%s\n' "$sel" | sed -n '1p')
 line=$(printf '%s\n' "$sel" | sed -n '2p')
 [ -z "$line" ] && exit 1
 
-IFS=$'\t' read -r _disp type path branch session note root <<<"$line"
+mapfile -td $'\t' parts < <(printf '%s\t' "$line")
+type=${parts[1]}
+path=${parts[2]}
+branch=${parts[3]}
+session=${parts[4]}
+note=${parts[5]}
+root=${parts[6]}
 case "$key" in
   ctrl-n) session=new ;;
   ctrl-r) session=resume ;;

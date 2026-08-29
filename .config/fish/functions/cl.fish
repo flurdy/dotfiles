@@ -23,9 +23,14 @@ function cl --description 'Claude launcher: pick a context (main/worktree/handof
         end
     end
 
-    # not a repo (e.g. a workspace dir of symlinked repos): there is no repo to
-    # build the worktree/handoff menu from — just launch claude here instead.
-    if not command git rev-parse --git-dir >/dev/null 2>&1
+    set -l desc (command $bin/cl-gather)
+    if test $status -ne 0
+        # A plain non-Git directory has no contexts to pick. Preserve the direct
+        # launch fallback, but only after gather has had a chance to find handoffs
+        # owned by this directory or one of its workspace members.
+        if command git rev-parse --git-dir >/dev/null 2>&1
+            return 1
+        end
         echo "cl: not a git repo — launching claude here" >&2
         set -l cargs
         test $chrome -eq 1; and set cargs $cargs --chrome
@@ -37,9 +42,6 @@ function cl --description 'Claude launcher: pick a context (main/worktree/handof
         command claude $cargs
         return
     end
-
-    set -l desc (command $bin/cl-gather)
-    or return 1
     set -l parts (string split \t -- $desc[1])
     test (count $parts) -ge 4; or return 1
     set -l type $parts[1]

@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 # context-gather: build a launch menu of contexts (main / worktrees / handoffs /
 # new), pick one via fzf, and emit a tab-delimited action descriptor:
-#     <type>\t<path>\t<branch>\t<session>\t<note>
+#     <type>\t<path>\t<branch>\t<session>\t<note>\t<root>
 #   type:    main | wt | handoff | new
 #   session: new | continue | resume | handoff | worktree | fork
+#   root:    owning repo, set only when the row belongs to a workspace member
+#            rather than the current repo; the caller must run git there
 #
 # The invoking name selects the agent when installed as cl-gather or pl-gather.
 # Direct calls must pass --agent=claude or --agent=pi.
@@ -40,15 +42,14 @@ while [ "$#" -gt 0 ]; do
 done
 
 case "$agent" in
-  claude) label="cl"; supports_fork=1 ;;
-  pi) label="pl"; supports_fork=0 ;;
+  claude) supports_fork=1 ;;
+  pi) supports_fork=0 ;;
   "") echo "$prog: agent not specified (use --agent=claude or --agent=pi)" >&2; exit 2 ;;
   *) echo "$prog: unsupported agent: $agent" >&2; exit 2 ;;
 esac
 
 MAIN=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)
 MAIN=${MAIN%/.git}
-[ -z "$MAIN" ] && { echo "$label: not in a git repo" >&2; exit 1; }
 HANDOFF_LIST="${AI_HANDOFF_LIST:-$HOME/.claude/skills/handoffs/scripts/list.sh}"
 
 # --- PR data, keyed by branch -----------------------------------------------
@@ -69,7 +70,7 @@ fetch_pr() {
         ] | @tsv'
 }
 declare -A PR_NUM PR_REV
-if command -v gh >/dev/null 2>&1; then
+if [ -n "$MAIN" ] && command -v gh >/dev/null 2>&1; then
   cache_dir="${XDG_CACHE_HOME:-$HOME/.cache}/ai-launcher"; mkdir -p "$cache_dir"
   cache="$cache_dir/pr-$(printf '%s' "$MAIN" | cksum | cut -d' ' -f1).tsv"
   refresh_pr_cache() {
@@ -105,13 +106,26 @@ if command -v gh >/dev/null 2>&1; then
   fi
 fi
 
-# --- handoffs owned by THIS repo --------------------------------------------
+# --- handoffs owned by THIS repo, or by a member of THIS workspace -----------
 # list.sh tags every handoff with its owning repo remote and tells us the
 # current repo (---CURRENT-REPO---). Surface only this repo's handoffs, each as
-# its own row, so sibling-repo handoffs do not leak into this picker.
+# its own row, so unrelated sibling-repo handoffs do not leak into this picker.
+#
+# A multi-repo workspace root is the exception. Its member repos are independent
+# clones, so a handoff written from one is tagged to that member and would never
+# match ---CURRENT-REPO---. list.sh already resolves the membership and re-emits
+# those rows under ---WORKSPACE-MEMBER-HANDOFFS--- with the member's repo root
+# appended; take them too, or the workspace picker hides the very handoffs the
+# workspace exists to coordinate. The member root rides along in HO_ROOT so the
+# caller can run its git operations in the owning repo rather than the root.
+#
+# Superseded rows are dropped in both sections: list.sh sets field 8 only when a
+# newer handoff for the same branch or slug exists in the same repo, and that
+# newer row is in this list too. Offering the dead one is offering stale context.
 CURRENT_REPO=""
 HANDOFFS_DIR_LS="$HOME/.claude/handoffs"
-declare -a HO_FILE HO_SLUG HO_PATH HO_BRANCH HO_DATE HO_TIME HO_SORT_KEY
+handoff_count=0
+declare -a HO_FILE HO_SLUG HO_PATH HO_BRANCH HO_DATE HO_TIME HO_SORT_KEY HO_ROOT
 if [ -x "$HANDOFF_LIST" ]; then
   section=""
   while IFS= read -r line; do
@@ -119,17 +133,29 @@ if [ -x "$HANDOFF_LIST" ]; then
     case "$section" in
       ---CURRENT-REPO---) [ -z "$CURRENT_REPO" ] && CURRENT_REPO="$line" ;;
       ---HANDOFFS-DIR---) [ -n "$line" ] && HANDOFFS_DIR_LS="$line" ;;
-      ---HANDOFFS---)
+      ---HANDOFFS---|---WORKSPACE-MEMBER-HANDOFFS---)
         # Field 15 is the HH:MM handoff time. Keep the trailing fields opaque:
         # list.sh has a wider, evolving record format, while the launcher only
-        # needs the identity, pickup location, and timestamp.
-        IFS='|' read -r hfile hdate hslug hpath hbranch hrepo _exists _supby \
+        # needs the identity, pickup location, timestamp, and supersession.
+        IFS='|' read -r hfile hdate hslug hpath hbranch hrepo _exists hsupby \
           _supreason _state _prstate _prnum _prurl _archclass htime _rest <<<"$line"
         [ -z "$hfile" ] && continue
-        [ -n "$CURRENT_REPO" ] && [ "$hrepo" != "$CURRENT_REPO" ] && continue
+        [ "$hbranch" = "?" ] && hbranch=""
+        [ -n "$hsupby" ] && continue
+        hroot=""
+        if [ "$section" = "---WORKSPACE-MEMBER-HANDOFFS---" ]; then
+          # The member root is the final field, so cut after the last separator:
+          # free-text fields in between may themselves contain a '|'.
+          hroot="${line##*|}"
+          [ -d "$hroot" ] || continue
+        elif [ -n "$CURRENT_REPO" ] && [ "$hrepo" != "$CURRENT_REPO" ]; then
+          continue
+        fi
         [ "$htime" = "?" ] || [[ "$htime" =~ ^[0-2][0-9]:[0-5][0-9]$ ]] || htime="?"
         HO_FILE+=("$hfile"); HO_SLUG+=("$hslug"); HO_PATH+=("$hpath")
         HO_BRANCH+=("$hbranch"); HO_DATE+=("$hdate"); HO_TIME+=("$htime")
+        HO_ROOT+=("$hroot")
+        handoff_count=$((handoff_count + 1))
         # Unknown times fall back to midnight, so known same-day entries sort
         # first while the date still orders legacy handoffs correctly.
         HO_SORT_KEY+=("$hdate ${htime/\?/00:00}")
@@ -147,9 +173,9 @@ state_markers() {
   printf '%s' "$m"
 }
 
-# --- build rows: DISPLAY \t TYPE \t PATH \t BRANCH \t SESSION \t NOTE ---------
+# --- build rows: DISPLAY \t TYPE \t PATH \t BRANCH \t SESSION \t NOTE \t ROOT --
 rows=""
-add_row() { rows+="$1"$'\t'"$2"$'\t'"$3"$'\t'"$4"$'\t'"$5"$'\t'"${6:-}"$'\n'; }
+add_row() { rows+="$1"$'\t'"$2"$'\t'"$3"$'\t'"$4"$'\t'"$5"$'\t'"${6:-}"$'\t'"${7:-}"$'\n'; }
 
 cur_path=""; cur_branch=""
 flush_wt() {
@@ -166,14 +192,16 @@ flush_wt() {
   fi
   cur_path=""; cur_branch=""
 }
-while IFS= read -r line; do
-  case "$line" in
-    "worktree "*) flush_wt; cur_path="${line#worktree }" ;;
-    "branch refs/heads/"*) cur_branch="${line#branch refs/heads/}" ;;
-    "detached") cur_branch="(detached)" ;;
-  esac
-done < <(git -C "$MAIN" worktree list --porcelain)
-flush_wt
+if [ -n "$MAIN" ]; then
+  while IFS= read -r line; do
+    case "$line" in
+      "worktree "*) flush_wt; cur_path="${line#worktree }" ;;
+      "branch refs/heads/"*) cur_branch="${line#branch refs/heads/}" ;;
+      "detached") cur_branch="(detached)" ;;
+    esac
+  done < <(git -C "$MAIN" worktree list --porcelain)
+  flush_wt
+fi
 
 # A handoff is a markdown note rather than a recorded agent conversation. The
 # caller starts a fresh session in the pick-up directory and loads the note.
@@ -184,10 +212,10 @@ for ((i = 1; i < ${#HO_ORDER[@]}; i++)); do
   candidate=${HO_ORDER[$i]}
   j=$((i - 1))
   while ((j >= 0)) && [[ "${HO_SORT_KEY[${HO_ORDER[$j]}]}" < "${HO_SORT_KEY[$candidate]}" ]]; do
-    HO_ORDER[$((j + 1))]=${HO_ORDER[$j]}
+    HO_ORDER[j + 1]=${HO_ORDER[$j]}
     j=$((j - 1))
   done
-  HO_ORDER[$((j + 1))]=$candidate
+  HO_ORDER[j + 1]=$candidate
 done
 for i in "${HO_ORDER[@]}"; do
   hp="${HO_PATH[$i]/#$HOME/\~}"
@@ -195,10 +223,16 @@ for i in "${HO_ORDER[@]}"; do
   [ "${HO_TIME[$i]}" = "?" ] || timestamp+=" ${HO_TIME[$i]}"
   add_row "handoff: ${HO_SLUG[$i]}   ($timestamp · $hp)" \
           handoff "${HO_PATH[$i]}" "${HO_BRANCH[$i]}" handoff \
-          "$HANDOFFS_DIR_LS/${HO_FILE[$i]}"
+          "$HANDOFFS_DIR_LS/${HO_FILE[$i]}" "${HO_ROOT[$i]}"
 done
 
-add_row "+ new worktree" new "" "" new
+if [ -n "$MAIN" ]; then
+  add_row "+ new worktree" new "" "" new
+elif [ "$handoff_count" -gt 0 ]; then
+  add_row "+ new session here" main "$(pwd -P)" "" new
+else
+  exit 1
+fi
 
 if [ "$LIST_ONLY" = 1 ]; then
   printf '%s' "$rows"
@@ -225,7 +259,13 @@ key=$(printf '%s\n' "$sel" | sed -n '1p')
 line=$(printf '%s\n' "$sel" | sed -n '2p')
 [ -z "$line" ] && exit 1
 
-IFS=$'\t' read -r _disp type path branch session note <<<"$line"
+mapfile -td $'\t' parts < <(printf '%s\t' "$line")
+type=${parts[1]}
+path=${parts[2]}
+branch=${parts[3]}
+session=${parts[4]}
+note=${parts[5]}
+root=${parts[6]}
 case "$key" in
   ctrl-n) session=new ;;
   ctrl-r) session=resume ;;
@@ -233,4 +273,4 @@ case "$key" in
   ctrl-w) session=worktree ;;
 esac
 
-printf '%s\t%s\t%s\t%s\t%s\n' "$type" "$path" "$branch" "$session" "$note"
+printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$type" "$path" "$branch" "$session" "$note" "$root"
