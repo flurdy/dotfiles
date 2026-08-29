@@ -19,7 +19,6 @@ SBT_OPTS="-XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -XX:PermSize=256
 JAVA_TOOL_OPTIONS='-Djava.awt.headless=true'
 
 # M2_HOME="/usr/share/maven" 
-# HOMEBREW_GITHUB_API_TOKEN=123467890abcd
 
 PATH=/usr/local/git/bin:~/bin:/usr/local/bin:$PATH
 
