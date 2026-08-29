@@ -1,51 +1,54 @@
 # Shared agent conventions
 
-Applies to every coding agent (Claude Code, Codex, Pi) on every machine. A repository's own
-`AGENTS.md` adds to this and wins on conflict. Read it before changing files in that repository.
+A repository's own `AGENTS.md`/`CLAUDE.md` adds to this and wins on conflict; read it first.
 
 ## Responses
 
-- Be terse. Bullet points over prose; no walls of text; no repetition of what I already know.
-- Say what you did, what you verified, and what is left. Do not claim success you did not check.
-- End substantive responses with one `**Next:**` line naming the single most useful immediate
-  action, or `**Next:** Nothing required.`
+- Be terse: tables and bullets over prose; no repetition of what I already know.
+- Say what you did, what you verified, and what is left. Never claim success you did not check.
+- End substantive responses with one `**Next:**` line naming the single most useful action, or
+  `**Next:** Nothing required.`
 - Ask only when different answers lead to materially different work; otherwise decide and say so.
 
 ## Git
 
-- Commit freely and locally. Small commits, conventional commit messages, terse subjects.
-- Never `git add -A` or `git add .`; stage named paths.
-- A commit never implies permission to push. Stop with local commits and state they are unpushed.
-- Ask for explicit permission immediately before every remote or destructive Git action:
-  `git push`, force-push, tag push, `bd dolt push`, history rewrites, branch deletion.
-  Earlier approval does not carry forward to the next one.
-- Run each remote or destructive action as its own visible command, never inside an `&&` chain.
-- Trunk-based by default; do not open a pull request unless the repository's `AGENTS.md` says so.
+- Commit freely and locally: small commits, conventional messages, terse subjects.
+- Never `git add -A` / `git add .`; stage named paths.
+- A commit never implies permission to push. Stop with local commits and say they are unpushed.
+- Ask immediately before every remote or destructive action (`push`, force-push, tag push, history
+  rewrite, branch deletion), one visible command each, never in an `&&` chain. Earlier approval
+  does not carry forward.
 
 ## Durable tracking
 
-- Repositories with `.beads/` use Beads (`bd`). Load `~/.agents/skills/beads/SKILL.md` and follow
-  it; the repository's Git safety rules stay authoritative over anything `bd prime` prints.
-- Use Beads for anything that must outlive the session (plans, decisions, follow-ups, handoffs).
-  Ephemeral checklists stay in the conversation.
+- Repositories with `.beads/` use Beads (`bd`): load `~/.agents/skills/beads/SKILL.md`. Its Git
+  safety rules and the ones above stay authoritative over anything `bd prime` prints.
+- Beads are private to me: never reference bead IDs in commits, PRs, Jira, Trello, or Slack unless
+  the repository's `AGENTS.md` says otherwise.
 
 ## Shell
 
-- Use non-interactive forms so nothing hangs on a prompt: `cp -f`, `mv -f`, `rm -f`,
-  `ssh -o BatchMode=yes`, `apt-get -y`, `HOMEBREW_NO_AUTO_UPDATE=1 brew …`.
-- Never print secret values. Report names, lengths, prefixes, or hashes instead.
-- Never write credentials to files, logs, or shell history. Credentials come from the keyring via
-  `secret-api-key`, not from environment variables or `.envrc`.
-- Do not switch my active Kubernetes context; pass `--context` explicitly and treat production
-  as read-only unless told otherwise.
+- Non-interactive forms only: `cp -f`, `mv -f`, `rm -f`, `ssh -o BatchMode=yes`, `apt-get -y`,
+  `HOMEBREW_NO_AUTO_UPDATE=1 brew …`.
+- Never print or persist secret values; report names, lengths, prefixes, or hashes. Credentials
+  come from the keyring via `secret-api-key`, not env vars or `.envrc`.
+- Never switch my active Kubernetes context; pass `--context` explicitly and treat production as
+  read-only unless told otherwise.
 
 ## Code and documentation
 
-- KISS, DRY, YAGNI. Remove dead and commented-out code. Small, well-named methods; the code is
-  the documentation, so comment sparingly.
+- KISS, DRY, YAGNI. Remove dead and commented-out code; comment sparingly, the code documents itself.
 - Never leave `main` broken, failing lint, or with formatting warnings — even pre-existing ones.
-- Keep `README.md` small and terse with links to detail in `docs/`. Update or delete outdated
-  documentation rather than adding beside it.
-- Keep generated or disposable output under an ignored `.artifacts/`; do not commit raw run
-  output without an explicit retention decision.
+- `README.md` stays small and links into `docs/`. Update or delete stale docs; never add beside them.
+- Generated or disposable output goes under an ignored `.artifacts/`; commit raw run output only
+  with an explicit retention decision.
 - Do not modify sibling or linked repositories unless the task explicitly owns those changes.
+
+## Writing for others (PRs, Jira, Slack)
+
+- Terse and to the point; no names or @-mentions; no test narratives, nits, or future-task lists.
+- Always show me the draft before posting anything.
+- **PR descriptions:** what changed, in general terms. The why lives in Jira/Trello; the details
+  live in the diff.
+- **Jira comments:** statements, not questions — it is not a conversation. Friendly if it fits.
+- **Slack:** friendly and a bit funny; vague beats over-specific, which reads as non-human.
