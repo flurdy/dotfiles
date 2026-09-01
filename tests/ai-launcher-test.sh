@@ -134,6 +134,16 @@ assert_status 'gather still builds contexts inside Git' 0
 assert_contains 'gather keeps the main checkout choice' $'main\tmain\t'
 assert_contains 'gather keeps the new-worktree choice' '+ new worktree'
 
+mode_file="$tmp/claude-launch-mode"
+printf 'auto\n' >"$mode_file"
+run "$repo/.claude/bin/cl-gather" --toggle-mode-file="$mode_file"
+assert_status 'cl mode toggle selects plan' 0
+assert_contains 'cl mode toggle renders plan in the header' 'mode=plan'
+printf 'plan\n' >"$mode_file"
+run "$repo/.claude/bin/cl-gather" --toggle-mode-file="$mode_file"
+assert_status 'cl mode toggle returns to auto' 0
+assert_contains 'cl mode toggle renders auto in the header' 'mode=auto'
+
 mode_file="$tmp/pi-launch-mode"
 printf 'implement\n' >"$mode_file"
 run "$repo/.pi/bin/pl-gather" --toggle-mode-file="$mode_file"
@@ -143,6 +153,18 @@ printf 'plan\n' >"$mode_file"
 run "$repo/.pi/bin/pl-gather" --toggle-mode-file="$mode_file"
 assert_status 'pl mode toggle returns to implement' 0
 assert_contains 'pl mode toggle renders implement in the header' 'mode=implement'
+
+run run_in_directory "$git_repo" env \
+  PATH="$tmp:/usr/bin:/bin" \
+  FZF_LOG="$tmp/cl-fzf.args" \
+  AI_HANDOFF_LIST="$tmp/list-empty" \
+  FIXTURE_WORKSPACE="$git_repo" \
+  "$repo/.claude/bin/cl-gather"
+assert_status 'cl gather opens the mode-aware picker' 0
+run grep -F -- '--header=mode=auto' "$tmp/cl-fzf.args"
+assert_status 'cl picker shows the initial mode' 0
+run grep -F -- 'ctrl-p:transform-header' "$tmp/cl-fzf.args"
+assert_status 'cl picker binds the mode toggle' 0
 
 run run_in_directory "$git_repo" env \
   PATH="$tmp:/usr/bin:/bin" \
@@ -158,7 +180,7 @@ assert_status 'pl picker binds the mode toggle' 0
 
 cat >"$home/.claude/bin/cl-gather" <<FIXTURE
 #!/usr/bin/env bash
-printf 'handoff\\t%s\\t\\thandoff\\t%s\\t%s\\n' '$member' '$home/.claude/handoffs/member.md' '$member'
+printf 'handoff\\t%s\\t\\thandoff\\t%s\\t%s\\tauto\\n' '$member' '$home/.claude/handoffs/member.md' '$member'
 FIXTURE
 chmod +x "$home/.claude/bin/cl-gather"
 
@@ -171,7 +193,7 @@ chmod +x "$home/.pi/bin/pl-gather"
 run env HOME="$home" fish -c "cd '$workspace'; source '$repo/.config/fish/functions/cl.fish'; cl --dry-run"
 assert_status 'cl accepts a handoff from a non-Git workspace root' 0
 assert_contains 'cl switches to the handoff owner' "cd $member"
-assert_contains 'cl seeds the selected handoff' "claude  <load $home/.claude/handoffs/member.md>"
+assert_contains 'cl seeds the selected handoff' "claude --permission-mode auto <load $home/.claude/handoffs/member.md>"
 assert_not_contains 'cl does not bypass the picker outside Git' 'not a git repo'
 
 run env HOME="$home" fish -c "cd '$workspace'; source '$repo/.config/fish/functions/pl.fish'; pl --dry-run"
@@ -179,6 +201,10 @@ assert_status 'pl accepts a handoff from a non-Git workspace root' 0
 assert_contains 'pl switches to the handoff owner' "cd $member"
 assert_contains 'pl seeds the selected handoff' "pi --implement <load $home/.claude/handoffs/member.md>"
 assert_not_contains 'pl does not bypass the picker outside Git' 'not a git repo'
+
+run env HOME="$home" fish -c "source '$repo/.config/fish/functions/cl.fish'; cl --plan"
+assert_status 'cl rejects a hidden command-line plan override' 2
+assert_contains 'cl directs mode selection to the picker' 'ctrl-p'
 
 mkdir -p "$home/.dotfiles/.pi/bin"
 cp -f "$home/.pi/bin/pl-gather" "$home/.dotfiles/.pi/bin/pl-gather"

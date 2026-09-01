@@ -18,8 +18,14 @@ function cl --description 'Claude launcher: pick a context (main/worktree/handof
             case --help -h
                 echo 'cl [--chrome|-C] [--model=ID] [--dry-run|-n] [--list]'
                 echo '  pick a context via fzf, then launch claude there.'
-                echo '  enter=default session  ctrl-n=new  ctrl-r=resume-pick  ctrl-f=fork  ctrl-w=worktree'
+                echo '  ctrl-p=toggle auto/plan  enter=default session  ctrl-n=new  ctrl-r=resume-pick  ctrl-f=fork  ctrl-w=worktree'
                 return 0
+            case --plan
+                echo "cl: choose the initial permission mode with ctrl-p inside the launcher" >&2
+                return 2
+            case '*'
+                echo "cl: unknown option: $a" >&2
+                return 2
         end
     end
 
@@ -52,6 +58,8 @@ function cl --description 'Claude launcher: pick a context (main/worktree/handof
     test (count $parts) -ge 5; and set note $parts[5]
     set -l root ''
     test (count $parts) -ge 6; and set root $parts[6]
+    set -l permission_mode ''
+    test (count $parts) -ge 7; and set permission_mode $parts[7]
 
     # A handoff owned by a member of this multi-repo workspace: move into the
     # owning repo up front, so the worktree lookup, cl-mkworktree, and the
@@ -144,6 +152,7 @@ function cl --description 'Claude launcher: pick a context (main/worktree/handof
     set -l cargs
     test $chrome -eq 1; and set cargs $cargs --chrome
     test -n "$model"; and set cargs $cargs --model $model
+    test -n "$permission_mode"; and set cargs $cargs --permission-mode $permission_mode
     test $bare_w -eq 1; and set cargs $cargs -w
     switch $session
         case continue

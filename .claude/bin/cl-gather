@@ -19,6 +19,7 @@ case "$prog" in
 esac
 
 LIST_ONLY=0
+TOGGLE_MODE_FILE=""
 usage() {
   cat <<EOF
 Usage: $prog [--agent=claude|pi] [--list]
@@ -35,6 +36,7 @@ while [ "$#" -gt 0 ]; do
       [ -n "$agent" ] || { echo "$prog: --agent requires a value" >&2; exit 2; }
       ;;
     --list) LIST_ONLY=1 ;;
+    --toggle-mode-file=*) TOGGLE_MODE_FILE="${1#--toggle-mode-file=}" ;;
     --help|-h) usage; exit 0 ;;
     *) echo "$prog: unknown option: $1" >&2; usage >&2; exit 2 ;;
   esac
@@ -42,11 +44,30 @@ while [ "$#" -gt 0 ]; do
 done
 
 case "$agent" in
-  claude) supports_fork=1 ;;
-  pi) supports_fork=0 ;;
+  claude) supports_fork=1; default_mode="auto" ;;
+  pi) supports_fork=0; default_mode="implement" ;;
   "") echo "$prog: agent not specified (use --agent=claude or --agent=pi)" >&2; exit 2 ;;
   *) echo "$prog: unsupported agent: $agent" >&2; exit 2 ;;
 esac
+
+picker_header() {
+  local mode="$1"
+  if [ "$supports_fork" = 1 ]; then
+    printf 'mode=%s  ctrl-p=toggle  enter=default  ctrl-n=new  ctrl-r=resume-pick  ctrl-f=fork  ctrl-w=worktree\n' "$mode"
+  else
+    printf 'mode=%s  ctrl-p=toggle  enter=default  ctrl-n=new  ctrl-r=resume-pick  ctrl-w=worktree\n' "$mode"
+  fi
+}
+
+# Internal fzf callback: mutate only this launcher's private state file and
+# print the replacement header. transform-header keeps the picker open.
+if [ -n "$TOGGLE_MODE_FILE" ]; then
+  current=$(cat "$TOGGLE_MODE_FILE" 2>/dev/null || printf '%s' "$default_mode")
+  if [ "$current" = plan ]; then next="$default_mode"; else next=plan; fi
+  printf '%s\n' "$next" >"$TOGGLE_MODE_FILE"
+  picker_header "$next"
+  exit 0
+fi
 
 MAIN=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)
 MAIN=${MAIN%/.git}
@@ -241,19 +262,27 @@ fi
 
 # --- pick --------------------------------------------------------------------
 if [ "$supports_fork" = 1 ]; then
-  header='enter=default  ctrl-n=new  ctrl-r=resume-pick  ctrl-f=fork  ctrl-w=worktree'
   expect='ctrl-n,ctrl-r,ctrl-f,ctrl-w'
 else
-  header='enter=default  ctrl-n=new  ctrl-r=resume-pick  ctrl-w=worktree'
   expect='ctrl-n,ctrl-r,ctrl-w'
 fi
+mode_file=$(mktemp "${TMPDIR:-/tmp}/ai-launch-mode.XXXXXX")
+cleanup_mode_file() { rm -f "$mode_file"; }
+trap cleanup_mode_file EXIT
+printf '%s\n' "$default_mode" >"$mode_file"
+printf -v self_q '%q' "$0"
+printf -v agent_q '%q' "$agent"
+printf -v mode_file_q '%q' "$mode_file"
+mode_bind="ctrl-p:transform-header($self_q --agent=$agent_q --toggle-mode-file=$mode_file_q)"
 sel=$(printf '%s' "$rows" | fzf \
         --ansi --delimiter='\t' --with-nth=1 \
         --height=40% --reverse --no-multi \
         --prompt='launch ▸ ' \
-        --header="$header" \
+        --header="$(picker_header "$default_mode")" \
+        --bind="$mode_bind" \
         --expect="$expect")
 [ -z "$sel" ] && exit 1
+launch_mode=$(cat "$mode_file" 2>/dev/null || printf '%s' "$default_mode")
 
 key=$(printf '%s\n' "$sel" | sed -n '1p')
 line=$(printf '%s\n' "$sel" | sed -n '2p')
@@ -273,4 +302,4 @@ case "$key" in
   ctrl-w) session=worktree ;;
 esac
 
-printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$type" "$path" "$branch" "$session" "$note" "$root"
+printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$type" "$path" "$branch" "$session" "$note" "$root" "$launch_mode"
