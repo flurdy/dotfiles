@@ -61,8 +61,14 @@ function pl --description 'Pi launcher: pick a context (main/worktree/handoff/ne
                 echo '  pick a context via fzf, then launch pi there.'
                 echo "  fresh-session defaults: $default_model with $default_thinking thinking"
                 echo "  configure defaults in $config_path"
-                echo '  enter=default session  ctrl-n=new  ctrl-r=resume-pick  ctrl-w=worktree'
+                echo '  ctrl-p=toggle implement/plan  enter=default session  ctrl-n=new  ctrl-r=resume-pick  ctrl-w=worktree'
                 return 0
+            case --plan --implement
+                echo "pl: choose the initial session mode with ctrl-p inside the launcher" >&2
+                return 2
+            case '*'
+                echo "pl: unknown option: $a" >&2
+                return 2
         end
     end
 
@@ -98,6 +104,8 @@ function pl --description 'Pi launcher: pick a context (main/worktree/handoff/ne
     test (count $parts) -ge 5; and set note $parts[5]
     set -l root ''
     test (count $parts) -ge 6; and set root $parts[6]
+    set -l session_mode ''
+    test (count $parts) -ge 7; and set session_mode $parts[7]
 
     # A handoff owned by a member of this multi-repo workspace: move into the
     # owning repo up front, so the worktree lookup, cl-mkworktree, and the
@@ -162,6 +170,12 @@ function pl --description 'Pi launcher: pick a context (main/worktree/handoff/ne
     test -n "$model"; and set pargs $pargs --model $model
     test -n "$thinking"; and set pargs $pargs --thinking $thinking
     test -n "$name"; and set pargs $pargs --name $name
+    switch $session_mode
+        case plan
+            set pargs $pargs --plan
+        case implement
+            set pargs $pargs --implement
+    end
     switch $session
         case continue
             set pargs $pargs --continue

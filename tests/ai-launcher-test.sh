@@ -101,6 +101,7 @@ assert_contains 'member descriptor carries owning repository root' "$member"
 
 cat >"$tmp/fzf" <<'FIXTURE'
 #!/usr/bin/env bash
+[ -z "${FZF_LOG:-}" ] || printf '%s\n' "$*" >"$FZF_LOG"
 printf 'enter\n'
 sed -n '2p'
 FIXTURE
@@ -133,6 +134,28 @@ assert_status 'gather still builds contexts inside Git' 0
 assert_contains 'gather keeps the main checkout choice' $'main\tmain\t'
 assert_contains 'gather keeps the new-worktree choice' '+ new worktree'
 
+mode_file="$tmp/pi-launch-mode"
+printf 'implement\n' >"$mode_file"
+run "$repo/.pi/bin/pl-gather" --toggle-mode-file="$mode_file"
+assert_status 'pl mode toggle selects plan' 0
+assert_contains 'pl mode toggle renders plan in the header' 'mode=plan'
+printf 'plan\n' >"$mode_file"
+run "$repo/.pi/bin/pl-gather" --toggle-mode-file="$mode_file"
+assert_status 'pl mode toggle returns to implement' 0
+assert_contains 'pl mode toggle renders implement in the header' 'mode=implement'
+
+run run_in_directory "$git_repo" env \
+  PATH="$tmp:/usr/bin:/bin" \
+  FZF_LOG="$tmp/pl-fzf.args" \
+  AI_HANDOFF_LIST="$tmp/list-empty" \
+  FIXTURE_WORKSPACE="$git_repo" \
+  "$repo/.pi/bin/pl-gather"
+assert_status 'pl gather opens the mode-aware picker' 0
+run grep -F -- '--header=mode=implement' "$tmp/pl-fzf.args"
+assert_status 'pl picker shows the initial mode' 0
+run grep -F -- 'ctrl-p:transform-header' "$tmp/pl-fzf.args"
+assert_status 'pl picker binds the mode toggle' 0
+
 cat >"$home/.claude/bin/cl-gather" <<FIXTURE
 #!/usr/bin/env bash
 printf 'handoff\\t%s\\t\\thandoff\\t%s\\t%s\\n' '$member' '$home/.claude/handoffs/member.md' '$member'
@@ -141,7 +164,7 @@ chmod +x "$home/.claude/bin/cl-gather"
 
 cat >"$home/.pi/bin/pl-gather" <<FIXTURE
 #!/usr/bin/env bash
-printf 'handoff\\t%s\\t\\thandoff\\t%s\\t%s\\n' '$member' '$home/.claude/handoffs/member.md' '$member'
+printf 'handoff\\t%s\\t\\thandoff\\t%s\\t%s\\timplement\\n' '$member' '$home/.claude/handoffs/member.md' '$member'
 FIXTURE
 chmod +x "$home/.pi/bin/pl-gather"
 
@@ -154,7 +177,7 @@ assert_not_contains 'cl does not bypass the picker outside Git' 'not a git repo'
 run env HOME="$home" fish -c "cd '$workspace'; source '$repo/.config/fish/functions/pl.fish'; pl --dry-run"
 assert_status 'pl accepts a handoff from a non-Git workspace root' 0
 assert_contains 'pl switches to the handoff owner' "cd $member"
-assert_contains 'pl seeds the selected handoff' "pi  <load $home/.claude/handoffs/member.md>"
+assert_contains 'pl seeds the selected handoff' "pi --implement <load $home/.claude/handoffs/member.md>"
 assert_not_contains 'pl does not bypass the picker outside Git' 'not a git repo'
 
 mkdir -p "$home/.dotfiles/.pi/bin"
