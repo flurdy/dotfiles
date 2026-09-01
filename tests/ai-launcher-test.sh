@@ -5,6 +5,18 @@ repo=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
+canonical_source=${AI_TOOLS_HOME:-}
+if [ -z "$canonical_source" ] || [ ! -x "$canonical_source/shared/launcher/context-gather" ]; then
+  echo "tests require AI_TOOLS_HOME pointing at a canonical ai-tools checkout" >&2
+  exit 2
+fi
+canonical="$tmp/ai-tools"
+mkdir -p "$canonical"
+cp -R "$canonical_source/shared" "$canonical/"
+cp -R "$canonical_source/pi" "$canonical/"
+cp -R "$canonical_source/claude" "$canonical/"
+export AI_TOOLS_HOME="$canonical"
+
 workspace="$tmp/workspace"
 member="$tmp/member"
 home="$tmp/home"
@@ -135,24 +147,32 @@ assert_contains 'gather keeps the main checkout choice' $'main\tmain\t'
 assert_contains 'gather keeps the new-worktree choice' '+ new worktree'
 
 mode_file="$tmp/claude-launch-mode"
-printf 'auto\n' >"$mode_file"
+printf 'restore\n' >"$mode_file"
 run "$repo/.claude/bin/cl-gather" --toggle-mode-file="$mode_file"
 assert_status 'cl mode toggle selects plan' 0
 assert_contains 'cl mode toggle renders plan in the header' 'mode=plan'
 printf 'plan\n' >"$mode_file"
 run "$repo/.claude/bin/cl-gather" --toggle-mode-file="$mode_file"
-assert_status 'cl mode toggle returns to auto' 0
+assert_status 'cl mode toggle selects auto' 0
 assert_contains 'cl mode toggle renders auto in the header' 'mode=auto'
+printf 'auto\n' >"$mode_file"
+run "$repo/.claude/bin/cl-gather" --toggle-mode-file="$mode_file"
+assert_status 'cl mode toggle returns to restore' 0
+assert_contains 'cl mode toggle renders restore in the header' 'mode=restore'
 
 mode_file="$tmp/pi-launch-mode"
-printf 'implement\n' >"$mode_file"
+printf 'restore\n' >"$mode_file"
 run "$repo/.pi/bin/pl-gather" --toggle-mode-file="$mode_file"
 assert_status 'pl mode toggle selects plan' 0
 assert_contains 'pl mode toggle renders plan in the header' 'mode=plan'
 printf 'plan\n' >"$mode_file"
 run "$repo/.pi/bin/pl-gather" --toggle-mode-file="$mode_file"
-assert_status 'pl mode toggle returns to implement' 0
+assert_status 'pl mode toggle selects implement' 0
 assert_contains 'pl mode toggle renders implement in the header' 'mode=implement'
+printf 'implement\n' >"$mode_file"
+run "$repo/.pi/bin/pl-gather" --toggle-mode-file="$mode_file"
+assert_status 'pl mode toggle returns to restore' 0
+assert_contains 'pl mode toggle renders restore in the header' 'mode=restore'
 
 run run_in_directory "$git_repo" env \
   PATH="$tmp:/usr/bin:/bin" \
@@ -161,7 +181,7 @@ run run_in_directory "$git_repo" env \
   FIXTURE_WORKSPACE="$git_repo" \
   "$repo/.claude/bin/cl-gather"
 assert_status 'cl gather opens the mode-aware picker' 0
-run grep -F -- '--header=mode=auto' "$tmp/cl-fzf.args"
+run grep -F -- '--header=mode=restore' "$tmp/cl-fzf.args"
 assert_status 'cl picker shows the initial mode' 0
 run grep -F -- 'ctrl-p:transform-header' "$tmp/cl-fzf.args"
 assert_status 'cl picker binds the mode toggle' 0
@@ -173,7 +193,7 @@ run run_in_directory "$git_repo" env \
   FIXTURE_WORKSPACE="$git_repo" \
   "$repo/.pi/bin/pl-gather"
 assert_status 'pl gather opens the mode-aware picker' 0
-run grep -F -- '--header=mode=implement' "$tmp/pl-fzf.args"
+run grep -F -- '--header=mode=restore' "$tmp/pl-fzf.args"
 assert_status 'pl picker shows the initial mode' 0
 run grep -F -- 'ctrl-p:transform-header' "$tmp/pl-fzf.args"
 assert_status 'pl picker binds the mode toggle' 0
@@ -232,6 +252,10 @@ assert_contains 'cl direct fallback stays in the plain directory' "claude    # f
 run env HOME="$home" fish -c "cd '$plain'; source '$repo/.config/fish/functions/pl.fish'; pl --dry-run"
 assert_status 'pl preserves direct launch in a plain directory' 0
 assert_contains 'pl direct fallback stays in the plain directory' "# from $plain"
+
+run env HOME="$home" AI_TOOLS_HOME="$tmp/missing-ai-tools" fish -c "source '$repo/.config/fish/functions/pl.fish'; pl --dry-run"
+assert_status 'pl fails clearly when canonical implementation is unavailable' 127
+assert_contains 'pl names the canonical installation requirement' 'set AI_TOOLS_HOME'
 
 if [ "$failures" -gt 0 ]; then
   printf '%s test assertion(s) failed\n' "$failures" >&2
