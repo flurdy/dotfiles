@@ -5,6 +5,9 @@ A repository's own `AGENTS.md`/`CLAUDE.md` adds to this and wins on conflict; re
 ## Responses
 
 - Be terse: tables and bullets over prose; no repetition of what I already know.
+- Any explanation or findings response longer than ~8 lines opens with a one- or two-sentence
+  **TL;DR** in plain language — what it means, not what you did. Detail follows for those who
+  read on.
 - Say what you did, what you verified, and what is left. Never claim success you did not check.
 - End substantive responses with one `**Next:**` line naming the single most useful action, or
   `**Next:** Nothing required.`
