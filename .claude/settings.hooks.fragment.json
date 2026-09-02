@@ -39,6 +39,16 @@
             "command": "bash ~/.claude/kitty-title.sh PreToolUse"
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/.claude/hooks/artifact-hygiene-push.sh",
+            "timeout": 300
+          }
+        ]
       }
     ],
     "PostToolUse": [
