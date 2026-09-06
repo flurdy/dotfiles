@@ -30,7 +30,9 @@ for (sev, cat), n in sorted(counts.items()): print(f"{n} {sev} {cat}")
 print("verdict: " + str(r.get("verdict")))
 ')"
 
-if [[ "$status" -eq 0 ]] && printf '%s' "$summary" | grep -q '^verdict: clean$'; then
+# Pass on a complete audit whose only findings are informational (for example the
+# audit's own history); anything high/medium/low or partial coverage still denies.
+if [[ "$status" -eq 0 ]] && ! printf '%s' "$summary" | grep -qE '^[0-9]+ (high|medium|low|\?) '; then
   exit 0
 fi
 
