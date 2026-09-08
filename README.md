@@ -72,6 +72,14 @@ SSH
 * `cp ~/.dotfiles/.ssh/config ~/.ssh/config`
 
 
+Claude artifact-hygiene gate
+----
+The hook implementation lives in [ai-tools](https://github.com/flurdy/ai-tools/tree/main/claude/artifact-hygiene-gate), not dotfiles.
+Run `make -C /path/to/ai-tools/claude/artifact-hygiene-gate install` to link it directly into `~/.claude/hooks/`.
+The registration remains in `.claude/settings.hooks.fragment.json`; merge its hook arrays into Claude settings without replacing existing entries.
+The gate also requires the executable artifact-hygiene helper from [agent-skills](https://github.com/flurdy/agent-skills) installed under `~/.agents/skills/`.
+
+
 Private Dotfiles
 ----
 You could also add another level of indirection by having a ~/.dotprivate folder for common but non public settings.
