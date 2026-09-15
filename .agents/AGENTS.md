@@ -21,6 +21,13 @@ A repository's own `AGENTS.md`/`CLAUDE.md` adds to this and wins on conflict; re
 - Ask immediately before every remote or destructive action (`push`, force-push, tag push, history
   rewrite, branch deletion), one visible command each, never in an `&&` chain. Earlier approval
   does not carry forward.
+- **Beads-only exception:** after interactive enrollment binds a canonical store, exact Dolt remote
+  URL and branch in Pi's private user policy, `sync_beads_store` may perform one visible routine
+  fetch, conflict-prechecked pull, or non-force push without another prompt. It must revalidate the
+  binding and safety state, does not acquire source leases or change session mode, and never runs
+  automatically during reads or local triage. Raw Dolt commands, force/overwrite, conflict
+  resolution, migration/bootstrap, remote changes, backup publication, Git push and production
+  actions retain the confirmation rule above.
 
 ## Durable tracking
 
