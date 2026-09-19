@@ -80,6 +80,12 @@ Merge hook arrays without replacing existing entries, then review new Codex comm
 The gate also requires the executable artifact-hygiene helper from [agent-skills](https://github.com/flurdy/agent-skills) installed under `~/.agents/skills/`.
 
 
+Beads inventory
+----
+`beads-all` lists work across stores with cached ahead/behind counts, without syncing.
+Use `beads-all --all` to include empty stores. See [usage and checks](docs/beads-all.md).
+
+
 Private Dotfiles
 ----
 You could also add another level of indirection by having a ~/.dotprivate folder for common but non public settings.
