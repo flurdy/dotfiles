@@ -4,13 +4,12 @@
 # usage: beads-all [--ready] [-s STATUSES] [--all] [ROOT]
 #   --ready       use `bd ready` instead of `bd list`
 #   -s STATUSES   comma-separated statuses for `bd list` (default: open,in_progress,blocked)
-#   --all         print a header for stores with no matching beads too
+#   --all         compatibility alias; all stores are always shown
 #   ROOT          defaults to $BEADS_ALL_ROOT, then ~/Code/flurdy
 set -euo pipefail
 
 mode=list
 statuses=open,in_progress,blocked
-show_empty=0
 script_dir=$(dirname "$(realpath "${BASH_SOURCE[0]}")")
 root=""
 while [[ $# -gt 0 ]]; do
@@ -19,7 +18,7 @@ while [[ $# -gt 0 ]]; do
     -s|--status)
       [[ $# -ge 2 ]] || { echo "missing statuses" >&2; exit 2; }
       statuses=$2; shift ;;
-    --all) show_empty=1 ;;
+    --all) ;;
     -h|--help) sed -n '2,9p' "$0"; exit 0 ;;
     *) root=$1 ;;
   esac
@@ -56,14 +55,12 @@ run_store() {
   else
     printf 'listing unavailable\n' >"$out"
   fi
-  if [[ -s $out || $show_empty == 1 ]]; then
-    if ! python3 -B "$script_dir/beads-drift.py" "$root/$rel" >"$out.drift" 2>/dev/null; then
-      printf 'Dolt: unavailable (reader unavailable)\n' >"$out.drift"
-    fi
+  if ! python3 -B "$script_dir/beads-drift.py" "$root/$rel" >"$out.drift" 2>/dev/null; then
+    printf 'Dolt: unavailable (reader unavailable)\n' >"$out.drift"
   fi
 }
 export -f run_store
-export root mode statuses show_empty script_dir
+export root mode statuses script_dir
 
 i=0
 for rel in "${stores[@]}"; do
@@ -81,7 +78,7 @@ for ((n = 0; n < i; n++)); do
   if [[ -s $out ]] && grep -q '[^[:space:]]' "$out"; then
     printf '\n\e[1m== %s\e[0m  %s\n' "$rel" "$(<"$out.drift")"
     cat "$out"
-  elif [[ $show_empty == 1 ]]; then
+  else
     printf '\n\e[1m== %s\e[0m  (none)  %s\n' "$rel" "$(<"$out.drift")"
   fi
 done

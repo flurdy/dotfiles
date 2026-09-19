@@ -22,9 +22,10 @@ Dolt: diverged +2/-3 (local abc1234; cached origin/main@def5678); pending change
   drift; ignored/internal table changes do not count. A moving
   snapshot, missing remote/ref, stopped server, unsupported store or failed reader
   is reported explicitly, never as a healthy zero count. Raw query errors are hidden.
-- The existing task filter is unchanged. Stores without matching work stay hidden
-  unless `--all` is supplied, even if they have drift. Use **`beads-all --all`** for a
-  store-wide drift overview. Listing failures remain visible instead of looking empty.
+- The task filters are unchanged, but every discovered store is visible by default;
+  a store without matching work is labelled `(none)` beside its drift state. `--all`
+  remains accepted as a compatibility no-op. Listing failures remain visible instead
+  of looking empty.
 - Drift-reader failures do not fail the whole listing or hide healthy stores. Each
   drift subprocess has a ten-second timeout; the existing task-listing commands
   retain their native CLI timeout behavior.

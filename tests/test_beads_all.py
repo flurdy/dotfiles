@@ -289,15 +289,14 @@ class DriftTests(unittest.TestCase):
         self.assertEqual(len(ready), 1)
         self.assertIn("--readonly", ready[0])
 
-    def test_empty_store_filtering_and_custom_status(self):
+    def test_empty_store_is_default_and_all_is_compatible(self):
         self.case.update(listing="", ahead=2)
         self.save()
         cmd = [str(ROOT / "bin/beads-all"), "-s", "open", str(self.root)]
-        result = subprocess.run(
+        default = subprocess.run(
             cmd, env=self.env, capture_output=True, text=True, timeout=20, check=False
         )
-        self.assertEqual(result.stdout, "")
-        result = subprocess.run(
+        compatibility = subprocess.run(
             cmd[:1] + ["--all"] + cmd[1:],
             env=self.env,
             capture_output=True,
@@ -305,8 +304,11 @@ class DriftTests(unittest.TestCase):
             timeout=20,
             check=False,
         )
-        self.assertIn("ahead", result.stdout)
-        self.assertIn("(none)", result.stdout)
+        self.assertEqual(default.returncode, 0, default.stderr)
+        self.assertEqual(compatibility.returncode, 0, compatibility.stderr)
+        self.assertEqual(default.stdout, compatibility.stdout)
+        self.assertIn("ahead", default.stdout)
+        self.assertIn("(none)", default.stdout)
         calls = [args for _, args in self.calls() if "list" in args]
         self.assertTrue(all(args[args.index("-s") + 1] == "open" for args in calls))
 
