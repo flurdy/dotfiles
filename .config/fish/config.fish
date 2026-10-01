@@ -90,7 +90,7 @@ set -xg EDITOR /usr/bin/vim
 
 alias get "git"
 alias gut "git"
-alias ll "eza -l -a -g --icons"
+alias ll "eza -l -a -g --icons=auto"
 alias ga "git add -p"
 alias ghist "git history"
 #alias kube "kbubectl"
