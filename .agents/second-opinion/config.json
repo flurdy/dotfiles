@@ -1,0 +1,198 @@
+{
+  "version": 1,
+  "modelPolicies": {
+    "openrouter/qwen/qwen3.8-27b": {
+      "metered": true,
+      "consent": "allow"
+    },
+    "openrouter/~google/gemini-flash-latest": {
+      "metered": true,
+      "consent": "allow"
+    },
+    "openrouter/~x-ai/grok-latest": {
+      "metered": true,
+      "consent": "allow"
+    },
+    "openrouter/~deepseek/deepseek-flash-latest": {
+      "metered": true,
+      "consent": "allow"
+    },
+    "openrouter/~moonshotai/kimi-latest": {
+      "metered": true,
+      "consent": "allow"
+    },
+    "openrouter/~z-ai/glm-latest": {
+      "metered": true,
+      "consent": "allow"
+    }
+  },
+  "subscriptionRoutes": {
+    "claude": ["opus", "fable"],
+    "codex": ["gpt-6-sol", "gpt-6-astra", "gpt-6.1-sol"]
+  },
+  "profiles": {
+    "focused": {
+      "enabled": true,
+      "quorum": 2,
+      "consensusQuorum": 2,
+      "routes": [
+        {
+          "id": "claude",
+          "kind": "local",
+          "agent": "claude",
+          "enabled": true,
+          "model": "fable",
+          "role": "independent review"
+        },
+        {
+          "id": "codex",
+          "kind": "local",
+          "agent": "codex",
+          "enabled": true,
+          "model": "gpt-6-astra",
+          "role": "independent review"
+        }
+      ],
+      "limits": {
+        "maxParallel": 2,
+        "maxPromptBytes": 65536,
+        "maxOutputTokensPerModel": 2000,
+        "defaultTimeoutSeconds": 600
+      }
+    },
+    "extreme": {
+      "enabled": true,
+      "quorum": 2,
+      "consensusQuorum": 4,
+      "routes": [
+        {
+          "id": "qwen",
+          "kind": "openrouter",
+          "enabled": true,
+          "model": "openrouter/qwen/qwen3.8-27b",
+          "vendor": "Qwen",
+          "role": "independent reasoning",
+          "maxOutputTokens": 2000
+        },
+        {
+          "id": "gemini",
+          "kind": "openrouter",
+          "enabled": true,
+          "model": "openrouter/~google/gemini-flash-latest",
+          "vendor": "Google",
+          "role": "frontier critique",
+          "maxOutputTokens": 2000
+        },
+        {
+          "id": "grok",
+          "kind": "openrouter",
+          "enabled": true,
+          "model": "openrouter/~x-ai/grok-latest",
+          "vendor": "xAI",
+          "role": "frontier critique",
+          "maxOutputTokens": 2000
+        },
+        {
+          "id": "deepseek",
+          "kind": "openrouter",
+          "enabled": true,
+          "model": "openrouter/~deepseek/deepseek-flash-latest",
+          "vendor": "DeepSeek",
+          "role": "technical verification",
+          "maxOutputTokens": 2000
+        },
+        {
+          "id": "kimi",
+          "kind": "openrouter",
+          "enabled": true,
+          "model": "openrouter/~moonshotai/kimi-latest",
+          "vendor": "Moonshot AI",
+          "role": "long-context review",
+          "effort": "high"
+        },
+        {
+          "id": "glm",
+          "kind": "openrouter",
+          "enabled": true,
+          "model": "openrouter/~z-ai/glm-latest",
+          "vendor": "Z.ai",
+          "role": "independent reasoning",
+          "effort": "high"
+        }
+      ],
+      "limits": {
+        "maxParallel": 4,
+        "maxPromptBytes": 65536,
+        "maxOutputTokensPerModel": 16000,
+        "defaultTimeoutSeconds": 600
+      }
+    },
+    "premium": {
+      "enabled": true,
+      "quorum": 3,
+      "consensusQuorum": 3,
+      "routes": [
+        {
+          "id": "claude-fable",
+          "kind": "local",
+          "agent": "claude",
+          "enabled": true,
+          "model": "fable",
+          "effort": "high",
+          "role": "deep architecture reasoning"
+        },
+        {
+          "id": "claude-opus",
+          "kind": "local",
+          "agent": "claude",
+          "enabled": true,
+          "model": "opus",
+          "effort": "xhigh",
+          "role": "critical review"
+        },
+        {
+          "id": "codex-sol",
+          "kind": "local",
+          "agent": "codex",
+          "enabled": true,
+          "model": "gpt-6.1-sol",
+          "effort": "xhigh",
+          "role": "implementation verification"
+        },
+        {
+          "id": "codex-astra",
+          "kind": "local",
+          "agent": "codex",
+          "enabled": true,
+          "model": "gpt-6-astra",
+          "effort": "high",
+          "role": "architecture verification"
+        },
+        {
+          "id": "kimi",
+          "kind": "openrouter",
+          "enabled": true,
+          "model": "openrouter/~moonshotai/kimi-latest",
+          "vendor": "Moonshot AI",
+          "role": "long-context independent review",
+          "effort": "high"
+        },
+        {
+          "id": "glm",
+          "kind": "openrouter",
+          "enabled": true,
+          "model": "openrouter/~z-ai/glm-latest",
+          "vendor": "Z.ai",
+          "role": "independent reasoning",
+          "effort": "high"
+        }
+      ],
+      "limits": {
+        "maxParallel": 4,
+        "maxPromptBytes": 65536,
+        "maxOutputTokensPerModel": 16000,
+        "defaultTimeoutSeconds": 600
+      }
+    }
+  }
+}

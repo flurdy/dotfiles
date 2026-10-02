@@ -7,14 +7,15 @@
     "maxBytes": 10485760
   },
   "modelPolicies": {
-    "openai-codex/gpt-5.6-luna": { "metered": false },
+    "openai-codex/gpt-6-luna": { "metered": false },
     "openai-codex/gpt-5.6-terra": { "metered": false },
-    "openai-codex/gpt-5.6-sol": { "metered": false },
+    "openai-codex/gpt-6-sol": { "metered": false },
+    "openai-codex/gpt-6.1-sol": { "metered": false },
     "openai-codex/gpt-6-astra": { "metered": false },
     "anthropic/claude-haiku-4-5": { "metered": true, "consent": "allow" },
-    "anthropic/claude-sonnet-5": { "metered": true, "consent": "allow" },
+    "anthropic/claude-sonnet-5-5": { "metered": true, "consent": "allow" },
     "anthropic/claude-fable-5-1": { "metered": true, "consent": "allow" },
-    "anthropic/claude-opus-5": { "metered": true, "consent": "allow" },
+    "anthropic/claude-opus-5-5": { "metered": true, "consent": "allow" },
     "openrouter/~moonshotai/kimi-latest": { "metered": true, "consent": "allow" },
     "openrouter/~x-ai/grok-latest": { "metered": true, "consent": "allow" },
     "openrouter/~deepseek/deepseek-flash-latest": { "metered": true, "consent": "allow" },
@@ -28,7 +29,7 @@
       "thinking": "medium",
       "selection": "weighted-random",
       "candidates": [
-        { "model": "openai-codex/gpt-5.6-luna", "weight": 6, "enabled": false },
+        { "model": "openai-codex/gpt-6-luna", "weight": 6, "enabled": false },
         { "model": "openai-codex/gpt-5.6-terra", "weight": 3, "enabled": true },
         { "model": "anthropic/claude-haiku-4-5", "weight": 1, "enabled": false },
         { "model": "openrouter/~z-ai/glm-flash-latest", "weight": 1, "enabled": true },
@@ -40,9 +41,9 @@
       "thinking": "high",
       "selection": "weighted-random",
       "candidates": [
-        { "model": "openai-codex/gpt-5.6-terra", "weight": 1, "enabled": true },
-        { "model": "openai-codex/gpt-5.6-sol", "weight": 3, "enabled": true },
-        { "model": "anthropic/claude-sonnet-5", "weight": 1, "enabled": false },
+        { "model": "openai-codex/gpt-5.6-terra", "weight": 1, "enabled": false },
+        { "model": "openai-codex/gpt-6.1-sol", "weight": 3, "enabled": true },
+        { "model": "anthropic/claude-sonnet-5-5", "weight": 1, "enabled": false },
         { "model": "openrouter/~z-ai/glm-flash-latest", "weight": 1, "enabled": true },
         { "model": "openrouter/~x-ai/grok-latest", "weight": 1, "enabled": true }
       ]
@@ -53,15 +54,14 @@
       "selection": "weighted-random",
       "candidates": [
         { "model": "openai-codex/gpt-6-astra", "weight": 1, "enabled": true },
-        { "model": "openai-codex/gpt-5.6-sol", "weight": 2, "enabled": false },
-        { "model": "openrouter/x-ai/grok-4.8", "weight": 1, "enabled": false }, 
+        { "model": "openai-codex/gpt-6-sol", "weight": 2, "enabled": false },
         { "model": "openrouter/~x-ai/grok-latest", "weight": 1, "enabled": false }, 
         { "model": "openrouter/~moonshotai/kimi-latest", "weight": 1, "enabled": false }, 
         { "model": "openrouter/~deepseek/deepseek-flash-latest", "weight": 1, "enabled": false}, 
         { "model": "openrouter/~z-ai/glm-latest", "weight": 1, "enabled": false },
         { "model": "openrouter/~z-ai/glm-flash-latest", "weight": 1, "enabled": false },
         { "model": "anthropic/claude-fable-5-1", "weight": 1, "enabled": false },
-        { "model": "anthropic/claude-opus-5", "weight": 1, "enabled": false }
+        { "model": "anthropic/claude-opus-5-5", "weight": 1, "enabled": false }
       ]
     }
   }

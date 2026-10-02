@@ -1,0 +1,4 @@
+{
+  "defaultModel": "openai-codex/gpt-6-sol",
+  "defaultThinking": "high"
+}

@@ -1,0 +1,327 @@
+{
+  "models": {
+    "anthropic/claude-fable-5": [
+      {
+        "billing": "metered",
+        "effectiveFrom": "2026-08-26T02:28:28.318000Z",
+        "effectiveUntil": null
+      }
+    ],
+    "anthropic/claude-fable-5-1": [
+      {
+        "billing": "metered",
+        "effectiveFrom": "2026-08-26T02:28:28.318000Z",
+        "effectiveUntil": null
+      }
+    ],
+    "anthropic/claude-haiku-4-5": [
+      {
+        "billing": "metered",
+        "effectiveFrom": "2026-08-26T02:28:28.318000Z",
+        "effectiveUntil": null
+      }
+    ],
+    "anthropic/claude-opus-4-8": [
+      {
+        "billing": "metered",
+        "effectiveFrom": "2026-08-26T02:28:28.318000Z",
+        "effectiveUntil": null
+      }
+    ],
+    "anthropic/claude-opus-5": [
+      {
+        "billing": "metered",
+        "effectiveFrom": "2026-08-26T02:28:28.318000Z",
+        "effectiveUntil": null
+      }
+    ],
+    "anthropic/claude-opus-5.5": [
+      {
+        "billing": "metered",
+        "effectiveFrom": "2026-09-22T00:00:00Z",
+        "effectiveUntil": null
+      }
+    ],
+    "anthropic/claude-sonnet-5": [
+      {
+        "billing": "metered",
+        "effectiveFrom": "2026-08-26T02:28:28.318000Z",
+        "effectiveUntil": null
+      }
+    ],
+    "anthropic/claude-sonnet-5-5": [
+      {
+        "billing": "metered",
+        "effectiveFrom": "2026-09-28T00:00:00Z",
+        "effectiveUntil": null
+      }
+    ],
+    "google/gemini-3.1-pro-preview": [
+      {
+        "billing": "metered",
+        "effectiveFrom": "2026-08-26T02:28:28.318000Z",
+        "effectiveUntil": null
+      }
+    ],
+    "google/gemini-3.6-flash": [
+      {
+        "billing": "metered",
+        "effectiveFrom": "2026-08-26T02:28:28.318000Z",
+        "effectiveUntil": null
+      }
+    ],
+    "google/gemini-3.7-flash": [
+      {
+        "billing": "metered",
+        "effectiveFrom": "2026-08-26T02:28:28.318000Z",
+        "effectiveUntil": null
+      }
+    ],
+    "openai-codex/gpt-5.5": [
+      {
+        "billing": "subscription",
+        "effectiveFrom": "2026-08-26T02:28:28.318000Z",
+        "effectiveUntil": null
+      }
+    ],
+    "openai-codex/gpt-5.6-luna": [
+      {
+        "billing": "subscription",
+        "effectiveFrom": "2026-08-26T02:28:28.318000Z",
+        "effectiveUntil": null
+      }
+    ],
+    "openai-codex/gpt-5.6-sol": [
+      {
+        "billing": "subscription",
+        "effectiveFrom": "2026-08-26T02:28:28.318000Z",
+        "effectiveUntil": null
+      }
+    ],
+    "openai-codex/gpt-5.6-terra": [
+      {
+        "billing": "subscription",
+        "effectiveFrom": "2026-08-26T02:28:28.318000Z",
+        "effectiveUntil": null
+      }
+    ],
+    "openai-codex/gpt-6-astra": [
+      {
+        "billing": "subscription",
+        "effectiveFrom": "2026-09-03T00:00:00Z",
+        "effectiveUntil": null
+      }
+    ],
+    "openai-codex/gpt-6-luna": [
+      {
+        "billing": "subscription",
+        "effectiveFrom": "2026-09-22T00:00:00Z",
+        "effectiveUntil": null
+      }
+    ],
+    "openai-codex/gpt-6-luna-pro": [
+      {
+        "billing": "subscription",
+        "effectiveFrom": "2026-09-22T00:00:00Z",
+        "effectiveUntil": null
+      }
+    ],
+    "openai-codex/gpt-6-sol": [
+      {
+        "billing": "subscription",
+        "effectiveFrom": "2026-09-04T00:00:00Z",
+        "effectiveUntil": null
+      }
+    ],
+    "openai-codex/gpt-6.1-sol": [
+      {
+        "billing": "subscription",
+        "effectiveFrom": "2026-10-01T18:07:04Z",
+        "effectiveUntil": null
+      }
+    ],
+    "openai-codex/gpt-6-sol-pro": [
+      {
+        "billing": "subscription",
+        "effectiveFrom": "2026-09-22T00:00:00Z",
+        "effectiveUntil": null
+      }
+    ],
+    "openrouter/anthropic/claude-fable-5": [
+      {
+        "billing": "metered",
+        "effectiveFrom": "2026-08-26T02:28:28.318000Z",
+        "effectiveUntil": null
+      }
+    ],
+    "openrouter/anthropic/claude-fable-5.1": [
+      {
+        "billing": "metered",
+        "effectiveFrom": "2026-08-26T02:28:28.318000Z",
+        "effectiveUntil": null
+      }
+    ],
+    "openrouter/anthropic/claude-opus-4.8": [
+      {
+        "billing": "metered",
+        "effectiveFrom": "2026-08-26T02:28:28.318000Z",
+        "effectiveUntil": null
+      }
+    ],
+    "openrouter/deepseek/deepseek-v4-flash": [
+      {
+        "billing": "metered",
+        "effectiveFrom": "2026-08-26T02:28:28.318000Z",
+        "effectiveUntil": null
+      }
+    ],
+    "openrouter/deepseek/deepseek-v4-pro": [
+      {
+        "billing": "metered",
+        "effectiveFrom": "2026-08-26T02:28:28.318000Z",
+        "effectiveUntil": null
+      }
+    ],
+    "openrouter/google/gemini-3.7-flash": [
+      {
+        "billing": "metered",
+        "effectiveFrom": "2026-08-26T02:28:28.318000Z",
+        "effectiveUntil": null
+      }
+    ],
+    "openrouter/moonshotai/kimi-k3": [
+      {
+        "billing": "metered",
+        "effectiveFrom": "2026-08-26T02:28:28.318000Z",
+        "effectiveUntil": null
+      }
+    ],
+    "openrouter/openai/gpt-5.5": [
+      {
+        "billing": "metered",
+        "effectiveFrom": "2026-08-26T02:28:28.318000Z",
+        "effectiveUntil": null
+      }
+    ],
+    "openrouter/openai/gpt-5.6-sol-pro": [
+      {
+        "billing": "metered",
+        "effectiveFrom": "2026-08-26T02:28:28.318000Z",
+        "effectiveUntil": null
+      }
+    ],
+    "openrouter/openai/gpt-6-luna": [
+      {
+        "billing": "metered",
+        "effectiveFrom": "2026-09-22T00:00:00Z",
+        "effectiveUntil": null
+      }
+    ],
+    "openrouter/openai/gpt-6-luna-pro": [
+      {
+        "billing": "metered",
+        "effectiveFrom": "2026-09-22T00:00:00Z",
+        "effectiveUntil": null
+      }
+    ],
+    "openrouter/openai/gpt-6-sol": [
+      {
+        "billing": "metered",
+        "effectiveFrom": "2026-09-22T00:00:00Z",
+        "effectiveUntil": null
+      }
+    ],
+    "openrouter/openai/gpt-6-sol-pro": [
+      {
+        "billing": "metered",
+        "effectiveFrom": "2026-09-22T00:00:00Z",
+        "effectiveUntil": null
+      }
+    ],
+    "openrouter/x-ai/grok-4.5": [
+      {
+        "billing": "metered",
+        "effectiveFrom": "2026-08-26T02:28:28.318000Z",
+        "effectiveUntil": null
+      }
+    ],
+    "openrouter/x-ai/grok-4.6": [
+      {
+        "billing": "metered",
+        "effectiveFrom": "2026-08-26T02:28:28.318000Z",
+        "effectiveUntil": null
+      }
+    ],
+    "openrouter/z-ai/glm-5.3": [
+      {
+        "billing": "metered",
+        "effectiveFrom": "2026-08-26T02:28:28.318000Z",
+        "effectiveUntil": null
+      }
+    ],
+    "openrouter/z-ai/glm-5.3-flash": [
+      {
+        "billing": "metered",
+        "effectiveFrom": "2026-08-26T02:28:28.318000Z",
+        "effectiveUntil": null
+      }
+    ],
+    "openrouter/~deepseek/deepseek-flash-latest": [
+      {
+        "billing": "metered",
+        "effectiveFrom": "2026-09-22T02:02:54Z",
+        "effectiveUntil": null
+      }
+    ],
+    "openrouter/~google/gemini-flash-latest": [
+      {
+        "billing": "metered",
+        "effectiveFrom": "2026-09-22T02:02:54Z",
+        "effectiveUntil": null
+      }
+    ],
+    "openrouter/~moonshotai/kimi-latest": [
+      {
+        "billing": "metered",
+        "effectiveFrom": "2026-09-22T02:02:54Z",
+        "effectiveUntil": null
+      }
+    ],
+    "openrouter/qwen/qwen3.8-27b": [
+      {
+        "billing": "metered",
+        "effectiveFrom": "2026-09-22T02:02:54Z",
+        "effectiveUntil": null
+      }
+    ],
+    "openrouter/~x-ai/grok-latest": [
+      {
+        "billing": "metered",
+        "effectiveFrom": "2026-09-22T02:02:54Z",
+        "effectiveUntil": null
+      }
+    ],
+    "openrouter/~z-ai/glm-latest": [
+      {
+        "billing": "metered",
+        "effectiveFrom": "2026-09-22T02:02:54Z",
+        "effectiveUntil": null
+      }
+    ],
+    "openrouter/~z-ai/glm-flash-latest": [
+      {
+        "billing": "metered",
+        "effectiveFrom": "2026-09-22T02:02:54Z",
+        "effectiveUntil": null
+      }
+    ],
+    "openrouter/auto": [
+      {
+        "billing": "metered",
+        "effectiveFrom": "2026-09-22T02:02:54Z",
+        "effectiveUntil": null
+      }
+    ]
+  },
+  "schemaVersion": 1
+}
