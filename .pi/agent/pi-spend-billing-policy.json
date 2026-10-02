@@ -35,6 +35,13 @@
         "effectiveUntil": null
       }
     ],
+    "anthropic/claude-opus-5-5": [
+      {
+        "billing": "metered",
+        "effectiveFrom": "2026-09-22T00:00:00Z",
+        "effectiveUntil": null
+      }
+    ],
     "anthropic/claude-opus-5.5": [
       {
         "billing": "metered",
