@@ -28,7 +28,7 @@
   },
   "subscriptionRoutes": {
     "claude": ["opus", "fable"],
-    "codex": ["gpt-6-sol", "gpt-6-astra", "gpt-6.1-sol"]
+    "codex": ["gpt-6-astra", "gpt-6.1-sol"]
   },
   "profiles": {
     "focused": {
