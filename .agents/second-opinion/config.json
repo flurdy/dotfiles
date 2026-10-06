@@ -81,6 +81,7 @@
           "model": "openrouter/~google/gemini-flash-latest",
           "vendor": "Google",
           "role": "frontier critique",
+          "effort": "high",
           "maxOutputTokens": 32000
         },
         {
