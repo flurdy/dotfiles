@@ -4,7 +4,9 @@ A repository's own `AGENTS.md`/`CLAUDE.md` adds to this and wins on conflict; re
 
 ## Responses
 
-- Be terse: tables and bullets over prose; no repetition of what I already know.
+- Be terse; no repetition of what I already know. Use tables for repeated records, bullets for
+  independent points, and prose for reasoning. Avoid one-row or unrelated key/value tables.
+- Admit uncertainty; never present a guess as fact.
 - Any explanation or findings response longer than ~8 lines opens with a one- or two-sentence
   **TL;DR** in plain language — what it means, not what you did. Detail follows for those who
   read on.
@@ -16,6 +18,8 @@ A repository's own `AGENTS.md`/`CLAUDE.md` adds to this and wins on conflict; re
 ## Git
 
 - Commit freely and locally: small commits, conventional messages, terse subjects.
+- Code-changing work includes verification and a local commit unless told otherwise; do not stop
+  just to ask whether to commit. Fix and commit review findings before reporting completion.
 - Never `git add -A` / `git add .`; stage named paths.
 - A commit never implies permission to push. Stop with local commits and say they are unpushed.
 - Ask immediately before every remote or destructive action (`push`, force-push, tag push, history
@@ -43,6 +47,12 @@ A repository's own `AGENTS.md`/`CLAUDE.md` adds to this and wins on conflict; re
   come from the keyring via `secret-api-key`, not env vars or `.envrc`.
 - Never switch my active Kubernetes context; pass `--context` explicitly and treat production as
   read-only unless told otherwise.
+
+## Workflow
+
+- Read a skill's `SKILL.md` before invoking it; do not improvise arguments.
+- Use existing Makefile targets for core tasks and repeated commands.
+- Prefer named scripts over inline shell loops so permission rules can target stable commands.
 
 ## Code and documentation
 

@@ -72,6 +72,22 @@ SSH
 * `cp ~/.dotfiles/.ssh/config ~/.ssh/config`
 
 
+Shared agent conventions
+----
+Use `.agents/AGENTS.md` as the shared source for every machine. Back up any existing
+`~/.agents/AGENTS.md` regular file and reconcile local-only rules before replacing it:
+
+```sh
+mkdir -p ~/.agents
+ln -s ~/.dotfiles/.agents/AGENTS.md ~/.agents/AGENTS.md
+```
+
+Pi's `~/.pi/agent/AGENTS.md` and Codex's `~/.codex/AGENTS.md` link to
+`~/.agents/AGENTS.md`; Claude's `~/.claude/CLAUDE.md` imports `@~/.agents/AGENTS.md`.
+Keep harness-specific guidance in their wrappers. Verify the symlink chain on each
+machine and start a fresh session after changing instructions.
+
+
 Artifact-hygiene gates
 ----
 The shared hook implementation lives in [ai-tools](https://github.com/flurdy/ai-tools/tree/main/claude/artifact-hygiene-gate), not dotfiles.
