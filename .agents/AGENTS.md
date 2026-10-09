@@ -4,7 +4,10 @@ A repository's own `AGENTS.md`/`CLAUDE.md` adds to this and wins on conflict; re
 
 ## Responses
 
-- Be terse: tables and bullets over prose; no repetition of what I already know.
+- Be terse; no repetition of what I already know.
+- Use a table whenever the answer compares, lists, or maps ≥2 items with ≥2 attributes
+  (options, files, statuses, findings, causes/fixes). Bullets only for single-attribute lists;
+  prose only for one-off sentences.
 - Admit uncertainty; never present a guess as fact.
 - Any explanation or findings response longer than ~8 lines opens with a one- or two-sentence
   **TL;DR** in plain language — what it means, not what you did. Detail follows for those who
