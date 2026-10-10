@@ -17,6 +17,13 @@ A repository's own `AGENTS.md`/`CLAUDE.md` adds to this and wins on conflict; re
   `**Next:** Nothing required.`
 - Ask only when different answers lead to materially different work; otherwise decide and say so.
 
+## Task continuation
+
+- Continue through already-authorized steps; a finished section, skill handoff, or passing check is
+  not a stopping point. Do not end a run just to propose the obvious next step.
+- Pause only for a material decision, required approval, an unexpected blocker, or completion.
+  Continuation never widens scope, permissions, or consent, and never starts another bead unasked.
+
 ## Git
 
 - Commit freely and locally: small commits, conventional messages, terse subjects.
