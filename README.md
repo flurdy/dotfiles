@@ -99,7 +99,6 @@ The gate also requires the executable artifact-hygiene helper from [agent-skills
 Beads inventory
 ----
 `beads-all` lists every store with cached ahead/behind counts, without syncing.
-See [usage and checks](docs/beads-all.md).
 
 
 Private Dotfiles
