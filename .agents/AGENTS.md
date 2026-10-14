@@ -24,6 +24,19 @@ A repository's own `AGENTS.md`/`CLAUDE.md` adds to this and wins on conflict; re
 - Pause only for a material decision, required approval, an unexpected blocker, or completion.
   Continuation never widens scope, permissions, or consent, and never starts another bead unasked.
 
+## Delegation
+
+- Standing authorization: proactively use bounded subagents when parallel research, specialist
+  work, or independent review materially improves confidence, context use, or elapsed time.
+  Do not wait for an explicit delegation request on each task.
+- Work directly for trivial, tightly coupled, or inherently serial tasks; do not manufacture fanout.
+- Preserve billing consent, model-routing policy, task scope, and write permissions. This
+  authorization does not approve metered routes or grant access to additional repositories.
+- Keep one writer per worktree; isolate concurrent writers. The parent owns scope, integration,
+  evidence assessment, and final acceptance.
+- Briefly announce delegated work and summarize its results; distinguish independent review
+  from self-validation. Stop and report launch or runtime failures rather than silently switching tools.
+
 ## Git
 
 - Commit freely and locally: small commits, conventional messages, terse subjects.
