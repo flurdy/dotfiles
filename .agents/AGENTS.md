@@ -13,16 +13,20 @@ A repository's own `AGENTS.md`/`CLAUDE.md` adds to this and wins on conflict; re
   **TL;DR** in plain language — what it means, not what you did. Detail follows for those who
   read on.
 - Say what you did, what you verified, and what is left. Never claim success you did not check.
-- End substantive responses with one `**Next:**` line naming the single most useful action, or
-  `**Next:** Nothing required.`
+- End substantive final responses with one concise `**Next:**` line naming the single most useful
+  action that genuinely needs the user, or `**Next:** Nothing required.` The line reports a real
+  handoff; it is never a reason to stop before already-authorized work is finished.
 - Ask only when different answers lead to materially different work; otherwise decide and say so.
 
 ## Task continuation
 
-- Continue through already-authorized steps; a finished section, skill handoff, or passing check is
-  not a stopping point. Do not end a run just to propose the obvious next step.
+- If the next action is within the current request and authorization, do it before the final response.
+  Continue across sections, skill handoffs, and passing checks without asking whether to proceed;
+  use progress updates rather than ending the run to propose an already-authorized next step.
 - Pause only for a material decision, required approval, an unexpected blocker, or completion.
-  Continuation never widens scope, permissions, or consent, and never starts another bead unasked.
+  Read-only advice or verification alone never authorizes implementation or finalization.
+- "Go on" or "continue" resumes already-authorized work; it never substitutes for required explicit
+  approval, widens scope or permissions, or starts another bead unasked.
 
 ## Delegation
 
