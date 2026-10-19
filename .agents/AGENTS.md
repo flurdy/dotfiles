@@ -65,6 +65,8 @@ A repository's own `AGENTS.md`/`CLAUDE.md` adds to this and wins on conflict; re
 
 ## Shell
 
+- Before machine-specific work, read `~/.agents/AGENTS.local.md` once per session. If absent or
+  inconsistent with observed state, check `hostname`.
 - Non-interactive forms only: `cp -f`, `mv -f`, `rm -f`, `ssh -o BatchMode=yes`, `apt-get -y`,
   `HOMEBREW_NO_AUTO_UPDATE=1 brew …`.
 - Never print or persist secret values; report names, lengths, prefixes, or hashes. Credentials
