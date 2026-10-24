@@ -5,6 +5,10 @@
       "metered": true,
       "consent": "allow"
     },
+    "openrouter/qwen/qwen3.8-max-0902": {
+      "metered": true,
+      "consent": "allow"
+    },
     "openrouter/~google/gemini-flash-latest": {
       "metered": true,
       "consent": "allow"
@@ -22,6 +26,18 @@
       "consent": "allow"
     },
     "openrouter/~z-ai/glm-latest": {
+      "metered": true,
+      "consent": "allow"
+    },
+    "openrouter/~z-ai/glm-flash-latest": {
+      "metered": true,
+      "consent": "allow"
+    },
+    "openrouter/~google/gemini-pro-latest": {
+      "metered": true,
+      "consent": "allow"
+    },
+    "openrouter/mistralai/mistral-large-4-0": {
       "metered": true,
       "consent": "allow"
     }
@@ -69,7 +85,7 @@
           "id": "qwen",
           "kind": "openrouter",
           "enabled": true,
-          "model": "openrouter/qwen/qwen3.8-27b",
+          "model": "openrouter/qwen/qwen3.8-max-0902",
           "vendor": "Qwen",
           "role": "independent reasoning",
           "maxOutputTokens": 32000
@@ -115,10 +131,20 @@
           "id": "glm",
           "kind": "openrouter",
           "enabled": true,
-          "model": "openrouter/~z-ai/glm-latest",
+          "model": "openrouter/~z-ai/glm-flash-latest",
           "vendor": "Z.ai",
           "role": "independent reasoning",
           "effort": "high"
+        },
+        {
+          "id": "mistral",
+          "kind": "openrouter",
+          "enabled": true,
+          "model": "openrouter/mistralai/mistral-large-4-0",
+          "vendor": "Mistral AI",
+          "role": "independent technical review",
+          "effort": "high",
+          "maxOutputTokens": 64000
         }
       ],
       "limits": {
@@ -176,6 +202,15 @@
           "model": "openrouter/~moonshotai/kimi-latest",
           "vendor": "Moonshot AI",
           "role": "long-context independent review",
+          "effort": "high"
+        },
+        {
+          "id": "gemini-pro",
+          "kind": "openrouter",
+          "enabled": true,
+          "model": "openrouter/~google/gemini-pro-latest",
+          "vendor": "Google",
+          "role": "frontier critique",
           "effort": "high"
         },
         {
