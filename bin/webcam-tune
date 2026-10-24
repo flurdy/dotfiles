@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Lock Logitech StreamCam to manual exposure, white balance and focus.
+# Run after a meeting app opens the camera; Teams re-enables auto white balance.
+#
+# usage: webcam-tune [EXPOSURE] [GAIN]
+#   EXPOSURE  exposure_time_absolute in 100µs units; multiples of 100 avoid 50 Hz flicker (default 300)
+#   GAIN      0-255 (default 60)
+set -euo pipefail
+
+exposure="${1:-300}"
+gain="${2:-60}"
+
+devices=(/dev/v4l/by-id/usb-046d_Logitech_StreamCam_*-video-index0)
+device="${devices[0]}"
+[[ -e "$device" ]] || { echo "StreamCam not found" >&2; exit 1; }
+
+v4l2-ctl -d "$device" \
+  -c white_balance_automatic=0 \
+  -c focus_automatic_continuous=0 \
+  -c auto_exposure=1 \
+  -c backlight_compensation=0 \
+  -c power_line_frequency=1
+v4l2-ctl -d "$device" \
+  -c white_balance_temperature=4500 \
+  -c focus_absolute=30 \
+  -c exposure_time_absolute="$exposure" \
+  -c gain="$gain"
+v4l2-ctl -d "$device" -C white_balance_automatic,white_balance_temperature,focus_absolute,exposure_time_absolute,gain
