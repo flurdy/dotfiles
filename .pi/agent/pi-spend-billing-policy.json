@@ -1,5 +1,33 @@
 {
   "models": {
+    "pi-claude-cli/claude-haiku-5-5": [
+      {
+        "billing": "subscription",
+        "effectiveFrom": "2026-10-10T03:19:37Z",
+        "effectiveUntil": null
+      }
+    ],
+    "pi-claude-cli/claude-sonnet-5-5": [
+      {
+        "billing": "subscription",
+        "effectiveFrom": "2026-10-10T03:19:37Z",
+        "effectiveUntil": null
+      }
+    ],
+    "pi-claude-cli/claude-opus-5-5": [
+      {
+        "billing": "subscription",
+        "effectiveFrom": "2026-10-10T03:19:37Z",
+        "effectiveUntil": null
+      }
+    ],
+    "pi-claude-cli/claude-fable-5-1": [
+      {
+        "billing": "subscription",
+        "effectiveFrom": "2026-10-10T03:19:37Z",
+        "effectiveUntil": null
+      }
+    ],
     "anthropic/claude-fable-5": [
       {
         "billing": "metered",

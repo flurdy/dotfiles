@@ -8,11 +8,15 @@
   },
   "modelPolicies": {
     "openai-codex/gpt-6-luna": { "metered": false },
-    "openai-codex/gpt-5.6-terra": { "metered": false },
     "openai-codex/gpt-6-sol": { "metered": false },
     "openai-codex/gpt-6.1-sol": { "metered": false },
     "openai-codex/gpt-6-astra": { "metered": false },
+    "pi-claude-cli/claude-haiku-5-5": { "metered": false },
+    "pi-claude-cli/claude-sonnet-5-5": { "metered": false },
+    "pi-claude-cli/claude-opus-5-5": { "metered": false },
+    "pi-claude-cli/claude-fable-5-1": { "metered": false },
     "anthropic/claude-haiku-4-5": { "metered": true, "consent": "allow" },
+    "anthropic/claude-haiku-5-5": { "metered": true, "consent": "allow" },
     "anthropic/claude-sonnet-5-5": { "metered": true, "consent": "allow" },
     "anthropic/claude-fable-5-1": { "metered": true, "consent": "allow" },
     "anthropic/claude-opus-5-5": { "metered": true, "consent": "allow" },
@@ -26,14 +30,12 @@
   "tiers": {
     "economy": {
       "rank": 10,
-      "thinking": "medium",
+      "thinking": "high",
       "selection": "weighted-random",
       "candidates": [
-        { "model": "openai-codex/gpt-6-luna", "weight": 6, "enabled": false },
-        { "model": "openai-codex/gpt-5.6-terra", "weight": 3, "enabled": true },
-        { "model": "anthropic/claude-haiku-4-5", "weight": 1, "enabled": false },
-        { "model": "openrouter/~z-ai/glm-flash-latest", "weight": 1, "enabled": true },
-        { "model": "openrouter/~google/gemini-flash-latest", "weight": 1, "enabled": true }
+        { "model": "openai-codex/gpt-6-luna", "weight": 2, "enabled": true },
+        { "model": "pi-claude-cli/claude-haiku-5-5", "weight": 1, "enabled": false },
+        { "model": "pi-claude-cli/claude-sonnet-5-5", "weight": 3, "thinking": "medium", "enabled": true }
       ]
     },
     "standard": {
@@ -41,11 +43,9 @@
       "thinking": "high",
       "selection": "weighted-random",
       "candidates": [
-        { "model": "openai-codex/gpt-5.6-terra", "weight": 1, "enabled": false },
-        { "model": "openai-codex/gpt-6.1-sol", "weight": 3, "enabled": true },
-        { "model": "anthropic/claude-sonnet-5-5", "weight": 1, "enabled": false },
-        { "model": "openrouter/~z-ai/glm-flash-latest", "weight": 1, "enabled": true },
-        { "model": "openrouter/~x-ai/grok-latest", "weight": 1, "enabled": true }
+        { "model": "openai-codex/gpt-6.1-sol", "weight": 2, "enabled": true },
+        { "model": "pi-claude-cli/claude-sonnet-5-5", "weight": 2, "thinking": "xhigh", "enabled": true },
+        { "model": "pi-claude-cli/claude-opus-5-5", "weight": 4, "enabled": true }
       ]
     },
     "premium": {
@@ -53,15 +53,15 @@
       "thinking": "high",
       "selection": "weighted-random",
       "candidates": [
-        { "model": "openai-codex/gpt-6-astra", "weight": 1, "enabled": true },
-        { "model": "openai-codex/gpt-6-sol", "weight": 2, "enabled": false },
+        { "model": "openai-codex/gpt-6-astra", "weight": 2, "thinking": "high", "enabled": true },
+        { "model": "openai-codex/gpt-6.1-sol", "weight": 1, "thinking": "xhigh", "enabled": false },
+        { "model": "pi-claude-cli/claude-opus-5-5", "weight": 4, "thinking": "xhigh", "enabled": true },
+        { "model": "pi-claude-cli/claude-fable-5-1", "weight": 4, "thinking": "high", "enabled": true },
         { "model": "openrouter/~x-ai/grok-latest", "weight": 1, "enabled": false }, 
         { "model": "openrouter/~moonshotai/kimi-latest", "weight": 1, "enabled": false }, 
         { "model": "openrouter/~deepseek/deepseek-flash-latest", "weight": 1, "enabled": false}, 
         { "model": "openrouter/~z-ai/glm-latest", "weight": 1, "enabled": false },
-        { "model": "openrouter/~z-ai/glm-flash-latest", "weight": 1, "enabled": false },
-        { "model": "anthropic/claude-fable-5-1", "weight": 1, "enabled": false },
-        { "model": "anthropic/claude-opus-5-5", "weight": 1, "enabled": false }
+        { "model": "openrouter/~z-ai/glm-flash-latest", "weight": 1, "enabled": false }
       ]
     }
   }
